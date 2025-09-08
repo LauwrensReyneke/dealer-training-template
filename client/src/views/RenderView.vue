@@ -17,11 +17,7 @@
             <option v-for="d in dealers" :key="d.id" :value="d.id">{{ d.name }}</option>
           </select>
         </label>
-        <label class="text-xs font-medium">Template
-          <select v-model="selectedTemplate" class="mt-1 border rounded px-2 py-1 text-sm min-w-[10rem]">
-            <option v-for="t in templates" :key="t.key" :value="t.key">{{ t.key }}</option>
-          </select>
-        </label>
+        <div class="text-xs text-gray-600 flex items-center gap-1" v-if="selectedTemplateKey">Template: <span class="font-semibold">{{ selectedTemplateKey }}</span></div>
         <button @click="copy" :disabled="!rendered" class="px-3 py-1.5 rounded bg-blue-600 text-white text-sm disabled:opacity-40">Copy</button>
         <span class="text-sm" v-if="status">{{ status }}</span>
       </div>
@@ -36,16 +32,17 @@
 </template>
 <script setup>
 import { ref, watch, onMounted } from 'vue';
-import { listDealers, renderDealer, copyText, listTemplates } from '../api';
+import { listDealers, renderDealer } from '../api';
+import { selectedTemplateKey as globalTemplateKey, refreshTemplates } from '../stores/templatesStore';
 
 const dealers = ref([]);
-const templates = ref([{ key:'main'}]);
 const loading = ref(false);
 const selectedDealer = ref('');
-const selectedTemplate = ref('main');
 const rendered = ref('');
 const status = ref('');
 let timer;
+
+const selectedTemplateKey = globalTemplateKey; // alias for template
 
 function setStatus(msg, ttl=1200){
   status.value = msg;
@@ -58,27 +55,24 @@ async function loadDealers(){
   try { dealers.value = await listDealers(); } catch { setStatus('Failed to load dealers'); }
   finally { loading.value = false; }
 }
-async function loadTemplates(){
-  try { templates.value = await listTemplates(); if (!templates.value.length) templates.value=[{ key:'main'}]; if(!templates.value.some(t=>t.key===selectedTemplate.value)) selectedTemplate.value='main'; } catch { /* ignore */ }
-}
 
 async function doRender(){
   rendered.value='';
   if (!selectedDealer.value) return;
   setStatus('Rendering...', 800);
   try {
-    rendered.value = await renderDealer(selectedDealer.value, selectedTemplate.value);
+    rendered.value = await renderDealer(selectedDealer.value, selectedTemplateKey.value);
     setStatus('Rendered');
   } catch { setStatus('Render failed'); }
 }
 
 async function copy(){
   if (!rendered.value) return;
-  const ok = await copyText(rendered.value);
-  setStatus(ok ? 'Copied' : 'Copy failed');
+  try { await navigator.clipboard.writeText(rendered.value); setStatus('Copied'); }
+  catch { setStatus('Copy failed'); }
 }
 
-watch([selectedDealer, selectedTemplate], doRender);
+watch([selectedDealer, selectedTemplateKey], doRender);
 
-onMounted(async ()=>{ await Promise.all([loadDealers(), loadTemplates()]); });
+onMounted(async ()=>{ await Promise.all([loadDealers(), refreshTemplates()]); });
 </script>

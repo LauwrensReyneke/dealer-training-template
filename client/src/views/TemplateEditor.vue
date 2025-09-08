@@ -8,12 +8,9 @@
         </p>
       </div>
       <div class="ml-auto flex flex-wrap gap-2 items-end">
-        <label class="text-xs font-medium">Template
-          <select v-model="currentKey" class="mt-1 border rounded px-2 py-1 text-xs" @change="handleTemplateChange">
-            <option v-for="t in templates" :key="t.key" :value="t.key">{{ t.key }}</option>
-          </select>
-        </label>
-        <button @click="openModal('new')" class="px-2 py-1 text-xs rounded bg-blue-600 text-white">New</button>
+        <!-- Template selector moved to header; show current key inline for context -->
+        <span class="text-[11px] px-2 py-1 rounded bg-gray-100 text-gray-600" v-if="currentKey">{{ currentKey }}</span>
+        <button @click="handleNew" class="px-2 py-1 text-xs rounded bg-blue-600 text-white">New</button>
         <button @click="openModal('rename')" :disabled="!templates.length" class="px-2 py-1 text-xs rounded bg-blue-600 text-white disabled:opacity-40">Rename</button>
         <button @click="removeCurrent" :disabled="currentKey==='main' || deleting" class="px-2 py-1 text-xs rounded bg-red-600 text-white disabled:opacity-40">Delete</button>
       </div>
@@ -46,7 +43,6 @@
             <div class="space-y-2">
               <label class="block text-xs font-medium text-gray-600">Template Name</label>
               <input v-model="modalInput" @keydown.enter.prevent="confirmModal" autofocus class="w-full border rounded px-2 py-1 text-sm"/>
-<!--              <p class="text-[11px] text-gray-500">Allowed: a-z A-Z 0-9 . _ - (max 48 chars)</p>-->
               <p v-if="modalError" class="text-xs text-red-600">{{ modalError }}</p>
             </div>
             <div class="flex justify-end gap-2">
@@ -60,12 +56,11 @@
   </div>
 </template>
 <script setup>
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
 import { listTemplates, getTemplate, saveTemplate, deleteTemplate, renameTemplate } from '../api';
+import { templates, selectedTemplateKey, setSelectedTemplateKey, refreshTemplates, registerBeforeTemplateChange } from '../stores/templatesStore';
 
 const placeholders = Object.freeze(['{{DEALER_NAME}}','{{ADDRESS}}','{{NUMBER}}','{{BRAND}}']);
-const templates = ref([]);
-const currentKey = ref(''); // start empty, will be set to most recent after load
 const localTemplate = ref('');
 const original = ref('');
 const status = ref('');
@@ -85,7 +80,8 @@ const submitting = ref(false);
 const sanitize = k => (k||'').replace(/[^a-zA-Z0-9._-]+/g,'').slice(0,48);
 const sanitizedModalInput = computed(()=> sanitize(modalInput.value));
 const updatedAtDisplay = computed(()=> updatedAt.value ? new Date(updatedAt.value).toLocaleString() : '');
-const originalKeyBeforeChange = ref('main');
+
+const currentKey = computed(()=> selectedTemplateKey.value);
 
 function setStatus(msg, ttl=1200){
   status.value = msg; clearTimeout(clearTimer); if (msg) clearTimer = setTimeout(()=> status.value='', ttl);
@@ -113,13 +109,12 @@ async function confirmModal(){
   if (modalMode.value==='rename') {
     if (key === currentKey.value) { showModal.value=false; return; }
     if (templates.value.some(t=>t.key===key)) { modalError.value='Key already exists'; return; }
-    // proceed rename
     submitting.value=true;
     try {
       await renameTemplate(currentKey.value, key);
-      await loadTemplates(key);
-      currentKey.value = key;
-      originalKeyBeforeChange.value = key;
+      await refreshTemplates(key);
+      await setSelectedTemplateKey(key);
+      await loadTemplateContent();
       setStatus('Renamed');
       showModal.value=false;
     } catch { modalError.value='Rename failed'; }
@@ -128,8 +123,13 @@ async function confirmModal(){
     if (templates.value.some(t=>t.key===key)) { modalError.value='Key already exists'; return; }
     submitting.value=true;
     try {
+      if (localTemplate.value !== original.value) {
+        const proceed = confirm('Discard unsaved changes?');
+        if (!proceed) { submitting.value=false; return; }
+      }
       await saveTemplate(key, '');
-      await loadTemplates(key);
+      await refreshTemplates(key);
+      await setSelectedTemplateKey(key);
       await loadTemplateContent();
       setStatus('Created');
       showModal.value=false;
@@ -138,18 +138,8 @@ async function confirmModal(){
   }
 }
 
-async function loadTemplates(preferKey){
-  try {
-    const list = await listTemplates();
-    templates.value = list.length ? list : [{ key:'main', updated_at: new Date().toISOString() }];
-    if (preferKey && templates.value.some(t=>t.key===preferKey)) {
-      currentKey.value = preferKey;
-    } else if (!currentKey.value || !templates.value.some(t=>t.key===currentKey.value)) {
-      currentKey.value = templates.value[0].key; // most recently updated (list already ordered DESC)
-    }
-  } catch { setStatus('Failed to list templates'); }
-}
 async function loadTemplateContent(){
+  if (!currentKey.value) return;
   setStatus('Loading...',800);
   try {
     const tpl = await getTemplate(currentKey.value);
@@ -160,44 +150,45 @@ async function loadTemplateContent(){
 }
 async function save(){
   saving.value=true; setStatus('Saving...');
-  try { await saveTemplate(currentKey.value, localTemplate.value); original.value=localTemplate.value; setStatus('Saved'); await loadTemplates(currentKey.value); }
+  try { await saveTemplate(currentKey.value, localTemplate.value); original.value=localTemplate.value; setStatus('Saved'); await refreshTemplates(currentKey.value); }
   catch { setStatus('Save failed'); }
   finally { saving.value=false; }
 }
 function reset(){ localTemplate.value = original.value; }
 async function removeCurrent(){
-  if (currentKey.value==='main') return; // keep protection for original main key
+  if (currentKey.value==='main') return;
+  if (localTemplate.value !== original.value){ const proceed = confirm('Discard unsaved changes and delete?'); if(!proceed) return; }
   if (!confirm(`Delete template "${currentKey.value}"?`)) return;
   deleting.value=true; setStatus('Deleting...');
   try {
     await deleteTemplate(currentKey.value);
-    const prevDeleted = currentKey.value;
-    await loadTemplates(); // will auto-pick first remaining
+    await refreshTemplates();
     await loadTemplateContent();
     setStatus('Deleted');
-    if (currentKey.value === prevDeleted) { // fallback safety
-      await loadTemplates();
-      await loadTemplateContent();
-    }
   } catch { setStatus('Delete failed'); }
   finally { deleting.value=false; }
 }
-async function handleTemplateChange(){
+
+// Guard for header template change
+const unregisterGuard = registerBeforeTemplateChange(async ()=>{
   if (localTemplate.value !== original.value){
-    const proceed = confirm('Discard unsaved changes?');
-    if (!proceed){ return; }
+    return confirm('Discard unsaved changes?');
   }
-  await loadTemplateContent();
-  originalKeyBeforeChange.value = currentKey.value;
-}
+  return true;
+});
+
+watch(currentKey, async (n, o)=>{ if (n && n !== o) await loadTemplateContent(); });
+
+async function handleNew(){ openModal('new'); }
 
 onMounted(async ()=>{
-  await loadTemplates();
+  await refreshTemplates();
   await loadTemplateContent();
-  originalKeyBeforeChange.value=currentKey.value;
   window.addEventListener('keydown', escListener);
 });
 function escListener(e){ if (e.key==='Escape' && showModal.value){ closeModal(); } }
+
+onUnmounted(()=>{ unregisterGuard && unregisterGuard(); window.removeEventListener('keydown', escListener); });
 </script>
 <style scoped>
 /***** minimal fade *****/

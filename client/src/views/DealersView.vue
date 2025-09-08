@@ -20,14 +20,14 @@
       <tbody>
         <tr v-for="d in dealers" :key="d.id" class="border-t" :class="d.id===lastCopiedId ? 'bg-indigo-50' : ''">
           <td class="p-2">{{ d.name }}</td>
-          <td class="p-2">{{ d.address }}</td>
-          <td class="p-2">{{ d.number }}</td>
-          <td class="p-2">{{ d.brand }}</td>
-          <td class="p-2 text-right space-x-2">
-            <button @click="copyTemplate(d)" :disabled="copyingId===d.id" class="px-2 py-1 text-xs rounded bg-indigo-600 text-white disabled:opacity-50">{{ copyingId===d.id ? 'Copying…' : 'Copy Template' }}</button>
-            <button @click="editDealer(d)" class="px-2 py-1 text-xs rounded bg-blue-600 text-white">Edit</button>
-            <button @click="removeDealer(d)" class="px-2 py-1 text-xs rounded bg-red-600 text-white">Delete</button>
-          </td>
+            <td class="p-2">{{ d.address }}</td>
+            <td class="p-2">{{ d.number }}</td>
+            <td class="p-2">{{ d.brand }}</td>
+            <td class="p-2 text-right space-x-2">
+              <button @click="copyTemplate(d)" :disabled="copyingId===d.id" class="px-2 py-1 text-xs rounded bg-indigo-600 text-white disabled:opacity-50">{{ copyingId===d.id ? 'Copying…' : 'Copy Template' }}</button>
+              <button @click="editDealer(d)" class="px-2 py-1 text-xs rounded bg-blue-600 text-white">Edit</button>
+              <button @click="removeDealer(d)" class="px-2 py-1 text-xs rounded bg-red-600 text-white">Delete</button>
+            </td>
         </tr>
       </tbody>
     </table>
@@ -71,6 +71,7 @@ const copyingId = ref('');
 const lastCopiedId = ref('');
 const statusMsg = ref('');
 let clearTimer;
+
 function setStatus(msg){
   statusMsg.value = msg;
   clearTimeout(clearTimer);
@@ -78,36 +79,65 @@ function setStatus(msg){
 }
 
 async function load(){
-  loading.value=true;
-  try { const r = await fetch('/api/dealers'); dealers.value = (await r.json()).dealers || []; }
+  loading.value = true;
   try {
     const r = await fetch('/api/dealers');
     dealers.value = (await r.json()).dealers || [];
-  } finally { loading.value=false; }
+  } catch (e) {
+    setStatus('Failed to load dealers');
+  } finally {
+    loading.value = false;
+  }
+}
 function newDealer(){ Object.assign(form,{ id:'', name:'', address:'', number:'', brand:'' }); dialog.value.showModal(); }
 function editDealer(d){ Object.assign(form,d); dialog.value.showModal(); }
 function close(){ dialog.value.close(); }
 async function save(){
   const payload = { name: form.name, address: form.address, number: form.number, brand: form.brand };
-  if (form.id){
-    await fetch(`/api/dealers/${form.id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-  } else {
-    await fetch('/api/dealers', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+  try {
+    if (form.id){
+      await fetch(`/api/dealers/${form.id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    } else {
+      await fetch('/api/dealers', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    }
+    await load();
+    close();
+  } catch (e) {
+    setStatus('Save failed');
   }
-  await load();
-  close();
 }
 async function removeDealer(d){
   if (!confirm(`Delete dealer ${d.name}?`)) return;
-  await fetch(`/api/dealers/${d.id}`, { method:'DELETE' });
-  await load();
+  try {
+    await fetch(`/api/dealers/${d.id}`, { method:'DELETE' });
+    await load();
+  } catch { setStatus('Delete failed'); }
 }
 async function copyTemplate(d){
-    setStatus(`Copied template for ${d.name}`);
-  } catch (e){
-    setStatus(`Copy failed for ${d.name}`);
+  copyingId.value = d.id;
+  try {
     const r = await fetch(`/api/dealers/${d.id}/render`);
     if (!r.ok) throw new Error('render failed');
     const j = await r.json();
     const text = j.rendered || '';
-    if (!text) throw new Error('empty');
+    if (!text) throw new Error('empty render');
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+    }
+    lastCopiedId.value = d.id;
+    setStatus(`Copied template for ${d.name}`);
+  } catch (e) {
+    setStatus(`Copy failed for ${d.name}`);
+  } finally {
+    copyingId.value='';
+  }
+}
+
+onMounted(load);
+</script>
+<style scoped>
+dialog::backdrop { background: rgba(0,0,0,0.35); }
+</style>

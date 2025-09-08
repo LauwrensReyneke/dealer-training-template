@@ -21,6 +21,10 @@ const TEMPLATE_FILE_PATH = path.join(__dirname, 'template.txt');
 let dataInitialized = false;
 let INSTANCE_ID = process.env.INSTANCE_ID || (Math.random().toString(36).slice(2,10));
 
+function storageMode(){
+  return process.env.LIBSQL_URL ? 'remote-libsql' : (process.env.BLOB_READ_WRITE_TOKEN ? 'vercel-blob' : 'in-memory-sqljs');
+}
+
 async function initData() {
   if (dataInitialized) return;
   await db.init; // wait for DB init promise
@@ -56,7 +60,21 @@ function createApiRouter() {
   const app = express();
   app.use(express.json());
 
-  app.get('/health', async (req,res)=>{ res.json({ ok:true, instance: INSTANCE_ID, storage: process.env.LIBSQL_URL ? 'remote-libsql' : (process.env.BLOB_READ_WRITE_TOKEN ? 'vercel-blob' : 'in-memory-sqljs') }); });
+  app.get('/health', async (req,res)=>{ res.json({ ok:true, instance: INSTANCE_ID, storage: storageMode() }); });
+  app.get('/debug/state', async (req,res)=>{
+    try {
+      const dealers = await listDealers();
+      const template = await getTemplate();
+      res.json({
+        instance: INSTANCE_ID,
+        storage: storageMode(),
+        dealersCount: dealers.length,
+        dealerIds: dealers.map(d=>d.id).slice(0,50),
+        templateLength: template.length,
+        templateHash: require('crypto').createHash('sha1').update(template).digest('hex').slice(0,12)
+      });
+    } catch (e){ res.status(500).json({ error:'debug_state_failed', message: e.message }); }
+  });
 
   app.get('/template', async (req,res)=>{
     try { const t = await getTemplate(); res.json({ template: t }); }
@@ -101,24 +119,37 @@ function createApiRouter() {
   });
   app.get('/dealers/:id/render', async (req,res)=>{
     const { id } = req.params;
+    const debug = 'debug' in req.query || process.env.DEBUG_RENDER;
+    const meta = { id, instance: INSTANCE_ID, storage: storageMode() };
     try {
+      const dealers = debug ? await listDealers() : null;
       const dealer = await getDealer(id);
       if (!dealer || !dealer.id) {
-        console.warn('[render] dealer not found', { id, instance: INSTANCE_ID });
-        return res.status(404).json({ error:'dealer not found', id, instance: INSTANCE_ID });
+        if (debug) meta.dealersPresent = dealers.map(d=>d.id);
+        meta.reason = 'dealer_not_found';
+        return res.status(404).json({ error:'dealer not found', ...meta });
       }
       const template = await getTemplate();
+      if (debug) {
+        meta.templateLength = template.length;
+        meta.templateHash = require('crypto').createHash('md5').update(template).digest('hex').slice(0,12);
+      }
       const rendered = renderTemplateForDealer(template, dealer);
-      console.log('[render] success', { id, instance: INSTANCE_ID });
+      if (debug) meta.renderedLength = rendered.length;
       const wantsRaw = 'raw' in req.query || /text\/plain/.test(req.headers.accept||'');
       if (wantsRaw) {
-        res.set('Content-Type','text/plain; charset=utf-8').send(rendered);
-      } else {
-        res.json({ rendered, dealer, instance: INSTANCE_ID });
+        res.set('Content-Type','text/plain; charset=utf-8');
+        if (debug) res.set('X-Debug-Meta', Buffer.from(JSON.stringify(meta)).toString('base64'));
+        return res.send(rendered);
       }
+      res.json({ rendered, dealer, ...meta });
     } catch (e) {
-      console.error('[render] error', { id, instance: INSTANCE_ID, msg: e.message });
-      res.status(500).json({ error:'Failed to render', instance: INSTANCE_ID }); }
+      meta.reason = 'exception';
+      meta.message = e.message;
+      if (debug) meta.stack = e.stack?.split('\n').slice(0,4).join(' | ');
+      console.error('[render] error', meta);
+      res.status(500).json({ error:'render_failed', ...meta });
+    }
   });
 
   // Debug endpoint (not for production) to inspect current dealers

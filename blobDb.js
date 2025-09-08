@@ -31,6 +31,12 @@ async function loadFromBlob(){
     const res = await fetch(match.url, { cache:'no-store' });
     if (!res.ok) return false;
     const buffer = new Uint8Array(await res.arrayBuffer());
+    // Validate SQLite header ("SQLite format 3\0")
+    const header = Buffer.from(buffer.slice(0,16)).toString('utf8');
+    if (header !== 'SQLite format 3\0') {
+      console.warn('[blobDb] invalid sqlite header in blob, ignoring and starting fresh');
+      return false;
+    }
     db = new SQL.Database(buffer);
     return true;
   } catch (e){

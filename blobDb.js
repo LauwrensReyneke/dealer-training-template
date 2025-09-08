@@ -45,44 +45,36 @@ async function loadFromBlob(){
   }
 }
 
+async function performUpload(){
+  try {
+    const data = db.export();
+    await put(BLOB_DB_KEY, Buffer.from(data), {
+      access: BLOB_ACCESS,
+      token: BLOB_TOKEN,
+      contentType: 'application/octet-stream',
+      addRandomSuffix: false,
+    });
+    dirty = false;
+    console.log('[blobDb] upload ok', { key: BLOB_DB_KEY, bytes: data.length });
+  } catch (e){
+    if (/access must be "public"/i.test(e.message) && BLOB_ACCESS !== 'public') {
+      console.warn('[blobDb] retry public');
+      BLOB_ACCESS = 'public';
+      return performUpload();
+    }
+    console.error('[blobDb] upload failed', e.message);
+  }
+}
+
 function exportAndScheduleUpload(){
   dirty = true;
+  // In Vercel serverless, timers may not fire before freeze; rely on flushDirty()
+  if (process.env.VERCEL) return;
   clearTimeout(uploadTimer);
-  uploadTimer = setTimeout(async () => {
-    if (!dirty) return;
-    try {
-      const data = db.export();
-      await put(BLOB_DB_KEY, Buffer.from(data), {
-        access: BLOB_ACCESS,
-        token: BLOB_TOKEN,
-        contentType: 'application/octet-stream',
-        addRandomSuffix: false,
-      });
-      dirty = false;
-      // console.log('[blobDb] uploaded');
-    } catch (e){
-      // If access must be public, retry once forcing public
-      if (/access must be \"public\"/i.test(e.message) && BLOB_ACCESS !== 'public') {
-        console.warn('[blobDb] retrying upload with public access');
-        BLOB_ACCESS = 'public';
-        try {
-          const data = db.export();
-            await put(BLOB_DB_KEY, Buffer.from(data), {
-              access: 'public',
-              token: BLOB_TOKEN,
-              contentType: 'application/octet-stream',
-              addRandomSuffix: false,
-            });
-            dirty = false;
-            return;
-        } catch (e2){
-          console.error('[blobDb] upload retry failed', e2.message);
-        }
-      }
-      console.error('[blobDb] upload failed', e.message);
-    }
-  }, 250); // debounce rapid writes
+  uploadTimer = setTimeout(()=> { if (dirty) performUpload(); }, 250);
 }
+
+async function flushDirty(){ if (dirty) await performUpload(); }
 
 function run(sql){ db.exec(sql); }
 function prepare(sql){ return db.prepare(sql); }
@@ -150,5 +142,6 @@ module.exports = {
   getDealer,
   createDealer,
   updateDealer,
-  deleteDealer
+  deleteDealer,
+  flushDirty
 };

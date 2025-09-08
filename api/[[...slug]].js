@@ -37,5 +37,13 @@ function build(){
 module.exports = async function handler(req,res){
   try { await initData(); } catch(e){ console.error('initData failed', e); }
   if (!app) app = build();
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    res.once('finish', () => {
+      try {
+        const blobDb = require('../blobDb');
+        if (typeof blobDb.flushDirty === 'function') blobDb.flushDirty();
+      } catch (e){ console.warn('[api fn] flushDirty failed', e.message); }
+    });
+  }
   return app(req,res);
 };

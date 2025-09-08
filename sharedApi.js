@@ -60,6 +60,12 @@ function createApiRouter() {
   const app = express();
   app.use(express.json());
 
+  async function maybeFlush(){
+    if (process.env.BLOB_READ_WRITE_TOKEN) {
+      try { const { flushDirty } = require('./blobDb'); if (typeof flushDirty === 'function') await flushDirty(); } catch (e){ console.warn('[flush] failed', e.message); }
+    }
+  }
+
   app.get('/health', async (req,res)=>{ res.json({ ok:true, instance: INSTANCE_ID, storage: storageMode() }); });
   app.get('/debug/state', async (req,res)=>{
     try {
@@ -83,7 +89,7 @@ function createApiRouter() {
   app.put('/template', async (req,res)=>{
     const { template } = req.body || {};
     if (typeof template !== 'string') return res.status(400).json({ error:'template must be string' });
-    try { await saveTemplate(template); res.json({ ok:true }); }
+    try { await saveTemplate(template); await maybeFlush(); res.json({ ok:true }); }
     catch { res.status(500).json({ error:'Failed to write template' }); }
   });
 
@@ -97,6 +103,7 @@ function createApiRouter() {
     try {
       const id = Date.now().toString(36) + Math.random().toString(36).slice(2,6);
       const dealer = await createDealer({ id, name, address, number, brand });
+      await maybeFlush();
       res.status(201).json({ dealer });
     } catch { res.status(500).json({ error:'Failed to create dealer' }); }
   });
@@ -105,6 +112,7 @@ function createApiRouter() {
     try {
       const d = await updateDealer(id, req.body || {});
       if (!d) return res.status(404).json({ error:'not found' });
+      await maybeFlush();
       res.json({ dealer:d });
     } catch { res.status(500).json({ error:'Failed to update dealer' }); }
   });
@@ -114,6 +122,7 @@ function createApiRouter() {
       const existing = await getDealer(id);
       if (!existing) return res.status(404).json({ error:'not found' });
       await deleteDealer(id);
+      await maybeFlush();
       res.json({ ok:true });
     } catch { res.status(500).json({ error:'Failed to delete dealer' }); }
   });

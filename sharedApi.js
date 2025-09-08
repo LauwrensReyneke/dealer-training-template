@@ -42,12 +42,14 @@ function createApiRouter(){
   app.get('/template', async (req,res)=>{ try { const key = sanitizeTemplateKey(req.query.key)||'main'; const template = await getTemplate(key); res.json({ key, template }); } catch(e){ serverErr(res,e); } });
   app.put('/template', async (req,res)=>{ const { template, key } = req.body||{}; if (typeof template !== 'string') return bad(res,'invalid_template'); const k = sanitizeTemplateKey(key)||'main'; try { await saveTemplate(k, template); res.json({ ok:true, key:k }); } catch(e){ serverErr(res,e); } });
   app.delete('/template', async (req,res)=>{ const key = sanitizeTemplateKey(req.query.key); if (!key) return bad(res,'key_required'); if (key==='main') return bad(res,'cannot_delete_main'); try { const ok = await deleteTemplate(key); if (!ok) return notFound(res,key); res.json({ ok:true }); } catch(e){ serverErr(res,e); } });
-  app.post('/template/rename', async (req,res)=>{ const { oldKey, newKey } = req.body||{}; const o = sanitizeTemplateKey(oldKey); const n = sanitizeTemplateKey(newKey); if (!o || !n) return bad(res,'keys_required'); if (n === 'main' && o !== 'main') return bad(res,'reserved_target'); try { const ok = await renameTemplate(o,n); if (!ok) return res.status(409).json({ error:'rename_failed' }); res.json({ ok:true, key:n }); } catch(e){ serverErr(res,e); } });
-
-  // Dealers
-  app.get('/dealers', async (_req,res)=>{ try { res.json({ dealers: await listDealers() }); } catch(e){ serverErr(res,e); } });
-
-  // Dealer CRUD (query id)
+  app.post('/rename', async (req,res)=>{
+    const srcOld = req.query.oldKey || (req.body&&req.body.oldKey);
+    const srcNew = req.query.newKey || (req.body&&req.body.newKey);
+    const o = sanitizeTemplateKey(srcOld);
+    const n = sanitizeTemplateKey(srcNew);
+    if (!o || !n) return bad(res,'keys_required');
+    if (n === 'main' && o !== 'main') return bad(res,'reserved_target');
+    try { const ok = await renameTemplate(o,n); if (!ok) return res.status(409).json({ error:'rename_failed' }); res.json({ ok:true, key:n }); } catch(e){ serverErr(res,e); }
   app.get('/dealer', async (req,res)=>{ const id = sanitizeId(req.query.id); if (!id) return bad(res,'id_required'); try { const dealer = await getDealer(id); if (!dealer) return notFound(res,id); res.json({ dealer }); } catch(e){ serverErr(res,e); } });
   app.post('/dealer', async (req,res)=>{ const { name, address='', number='', brand='' } = req.body||{}; if (!name) return bad(res,'name_required'); try { const id = Date.now().toString(36)+Math.random().toString(36).slice(2,6); const dealer = await createDealer({ id, name, address, number, brand }); res.status(201).json({ dealer }); } catch(e){ serverErr(res,e); } });
   app.put('/dealer', async (req,res)=>{ const id = sanitizeId(req.query.id); if (!id) return bad(res,'id_required'); try { const dealer = await updateDealer(id, req.body||{}); if (!dealer) return notFound(res,id); res.json({ dealer }); } catch(e){ serverErr(res,e); } });

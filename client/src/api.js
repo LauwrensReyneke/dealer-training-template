@@ -47,7 +47,7 @@ export function updateDealer(id, payload){
   return request('PUT', `/dealer?id=${encodeURIComponent(id)}`, payload);
 }
 export function renameTemplate(oldKey, newKey){
-  return request('POST','/template/rename',{ oldKey, newKey });
+  return request('POST','/rename',{ oldKey, newKey });
 }
 export function deleteDealer(id){
   return request('DELETE', `/dealer?id=${encodeURIComponent(id)}`);

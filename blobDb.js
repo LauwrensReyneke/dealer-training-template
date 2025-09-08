@@ -93,7 +93,7 @@ async function seedTemplateIfMissing(defaultContent){
 }
 // Multi-template helpers
 function listTemplates(){
-  const stmt = prepare('SELECT key, updated_at FROM templates ORDER BY key COLLATE NOCASE');
+  const stmt = prepare('SELECT key, updated_at FROM templates ORDER BY datetime(updated_at) DESC, key COLLATE NOCASE');
   const arr = []; while (stmt.step()) arr.push(stmt.getAsObject()); return arr;
 }
 async function getTemplate(key='main'){

@@ -97,6 +97,15 @@ function createApiRouter() {
     try { const dealers = await listDealers(); console.log('[dealers] list', { instance: INSTANCE_ID, count: dealers.length }); res.json({ dealers, instance: INSTANCE_ID }); }
     catch { res.status(500).json({ error:'Failed to read dealers', instance: INSTANCE_ID }); }
   });
+  // New: fetch a single dealer
+  app.get('/dealers/:id', async (req,res)=>{
+    const { id } = req.params;
+    try {
+      const dealer = await getDealer(id);
+      if (!dealer) return res.status(404).json({ error:'not found' });
+      res.json({ dealer, instance: INSTANCE_ID });
+    } catch { res.status(500).json({ error:'Failed to read dealer' }); }
+  });
   app.post('/dealers', async (req,res)=>{
     const { name, address, number, brand } = req.body || {};
     if (!name) return res.status(400).json({ error:'name required' });

@@ -27,19 +27,44 @@ async function initSchema(){
 const init = (async () => { await initSchema(); })();
 
 async function seedTemplateIfMissing(defaultContent){
-  const r = await exec('SELECT 1 FROM templates WHERE key=?', ['main']);
+  const r = await exec('SELECT 1 FROM templates WHERE key=? LIMIT 1', ['main']);
   if (r.rows.length === 0){
     await exec('INSERT INTO templates (key, content) VALUES (?, ?)', ['main', defaultContent]);
   }
 }
-async function getTemplate(){
-  const r = await exec('SELECT content FROM templates WHERE key=?', ['main']);
-  return r.rows[0]?.content || '';
+async function listTemplates(){
+  const r = await exec('SELECT key, updated_at FROM templates ORDER BY datetime(updated_at) DESC, key COLLATE NOCASE');
+  return r.rows.map(row=>({ key: row.key, updated_at: row.updated_at }));
 }
-async function saveTemplate(content){
-  await exec(`INSERT INTO templates (key, content) VALUES ('main', ?)
-    ON CONFLICT(key) DO UPDATE SET content=excluded.content, updated_at=CURRENT_TIMESTAMP`, [content]);
+async function getTemplate(key='main'){
+  const r = await exec('SELECT content FROM templates WHERE key=? LIMIT 1', [key]);
+  if (r.rows[0]?.content) return r.rows[0].content;
+  if (key === 'main') {
+    const f = await exec('SELECT content FROM templates ORDER BY datetime(updated_at) DESC, key COLLATE NOCASE LIMIT 1');
+    return f.rows[0]?.content || '';
+  }
+  return '';
 }
+async function saveTemplate(key, content){
+  if (content === undefined) { content = key; key = 'main'; }
+  if (!key || !key.trim()) key='main';
+  await exec(`INSERT INTO templates (key, content) VALUES (?, ?) ON CONFLICT(key)
+    DO UPDATE SET content=excluded.content, updated_at=CURRENT_TIMESTAMP`, [key, content]);
+}
+async function deleteTemplate(key){
+  if (!key || key === 'main') return false;
+  await exec('DELETE FROM templates WHERE key=?', [key]);
+  return true;
+}
+async function renameTemplate(oldKey, newKey){
+  if (!oldKey || !newKey) return false; if (oldKey === newKey) return true;
+  const exists = await exec('SELECT 1 FROM templates WHERE key=? LIMIT 1', [newKey]);
+  if (exists.rows.length) return false;
+  const upd = await exec('UPDATE templates SET key=?, updated_at=CURRENT_TIMESTAMP WHERE key=?', [newKey, oldKey]);
+  return (upd.rowsAffected || 0) > 0;
+}
+
+// Dealer functions
 async function listDealers(){
   const r = await exec('SELECT id,name,address,number,brand FROM dealers ORDER BY name COLLATE NOCASE');
   return r.rows.map(row => ({ ...row }));
@@ -50,14 +75,6 @@ async function getDealer(id){
 }
 async function createDealer({ id, name, address='', number='', brand='' }){
   await exec('INSERT INTO dealers (id,name,address,number,brand) VALUES (?,?,?,?,?)', [id,name,address,number,brand]);
-async function renameTemplate(oldKey, newKey){
-  if (!oldKey || !newKey) return false;
-  if (oldKey === newKey) return true;
-  const exists = await exec('SELECT 1 FROM templates WHERE key=? LIMIT 1', [newKey]);
-  if (exists.rows.length) return false;
-  const updated = await exec('UPDATE templates SET key=? WHERE key=?', [newKey, oldKey]);
-  return (updated.rowsAffected || 0) > 0;
-}
   return getDealer(id);
 }
 async function updateDealer(id, fields){
@@ -71,8 +88,11 @@ async function deleteDealer(id){ await exec('DELETE FROM dealers WHERE id=?', [i
 module.exports = {
   init,
   seedTemplateIfMissing,
+  listTemplates,
   getTemplate,
   saveTemplate,
+  deleteTemplate,
+  renameTemplate,
   listDealers,
   getDealer,
   createDealer,

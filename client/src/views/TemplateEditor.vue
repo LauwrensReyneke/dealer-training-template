@@ -65,7 +65,7 @@ import { listTemplates, getTemplate, saveTemplate, deleteTemplate, renameTemplat
 
 const placeholders = Object.freeze(['{{DEALER_NAME}}','{{ADDRESS}}','{{NUMBER}}','{{BRAND}}']);
 const templates = ref([]);
-const currentKey = ref('main');
+const currentKey = ref(''); // start empty, will be set to most recent after load
 const localTemplate = ref('');
 const original = ref('');
 const status = ref('');
@@ -138,12 +138,15 @@ async function confirmModal(){
   }
 }
 
-async function loadTemplates(selectKey){
+async function loadTemplates(preferKey){
   try {
     const list = await listTemplates();
     templates.value = list.length ? list : [{ key:'main', updated_at: new Date().toISOString() }];
-    if (selectKey && templates.value.some(t=>t.key===selectKey)) currentKey.value = selectKey;
-    if (!templates.value.some(t=>t.key===currentKey.value)) currentKey.value = 'main';
+    if (preferKey && templates.value.some(t=>t.key===preferKey)) {
+      currentKey.value = preferKey;
+    } else if (!currentKey.value || !templates.value.some(t=>t.key===currentKey.value)) {
+      currentKey.value = templates.value[0].key; // most recently updated (list already ordered DESC)
+    }
   } catch { setStatus('Failed to list templates'); }
 }
 async function loadTemplateContent(){
@@ -163,23 +166,37 @@ async function save(){
 }
 function reset(){ localTemplate.value = original.value; }
 async function removeCurrent(){
-  if (currentKey.value==='main') return;
+  if (currentKey.value==='main') return; // keep protection for original main key
   if (!confirm(`Delete template "${currentKey.value}"?`)) return;
   deleting.value=true; setStatus('Deleting...');
-  try { await deleteTemplate(currentKey.value); await loadTemplates('main'); await loadTemplateContent(); setStatus('Deleted'); }
-  catch { setStatus('Delete failed'); }
+  try {
+    await deleteTemplate(currentKey.value);
+    const prevDeleted = currentKey.value;
+    await loadTemplates(); // will auto-pick first remaining
+    await loadTemplateContent();
+    setStatus('Deleted');
+    if (currentKey.value === prevDeleted) { // fallback safety
+      await loadTemplates();
+      await loadTemplateContent();
+    }
+  } catch { setStatus('Delete failed'); }
   finally { deleting.value=false; }
 }
 async function handleTemplateChange(){
   if (localTemplate.value !== original.value){
     const proceed = confirm('Discard unsaved changes?');
-    if (!proceed){ currentKey.value = templates.value.find(t=>t.key===originalKeyBeforeChange.value)?.key || 'main'; return; }
+    if (!proceed){ return; }
   }
-  originalKeyBeforeChange.value = currentKey.value;
   await loadTemplateContent();
+  originalKeyBeforeChange.value = currentKey.value;
 }
 
-onMounted(async ()=>{ await loadTemplates('main'); await loadTemplateContent(); originalKeyBeforeChange.value=currentKey.value; window.addEventListener('keydown', escListener); });
+onMounted(async ()=>{
+  await loadTemplates();
+  await loadTemplateContent();
+  originalKeyBeforeChange.value=currentKey.value;
+  window.addEventListener('keydown', escListener);
+});
 function escListener(e){ if (e.key==='Escape' && showModal.value){ closeModal(); } }
 </script>
 <style scoped>

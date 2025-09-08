@@ -74,7 +74,7 @@ function createApiRouter(){
     try { const existing = await getDealer(id); if (!existing) return notFound(res,id); await deleteDealer(id); await maybeFlush(); res.json({ ok:true }); } catch(e){ serverErr(res,e); }
   });
   // GET /dealer/render?id=XYZ[&raw][&debug]
-  app.get('/dealer/render', async (req,res)=>{
+  app.get('/render', async (req,res)=>{
     const id = sanitizeId(req.query.id); if (!id) return bad(res,'id_required');
     const debug = 'debug' in req.query;
     try {

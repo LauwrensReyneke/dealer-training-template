@@ -29,7 +29,7 @@ process.env.PORT = '0';
     const list = (await r.json()).dealers;
     assert(Array.isArray(list) && list.some(d=>d.id===dealer.id), 'dealer present in list');
 
-    r = await fetch(`${base}/api/dealer/render?id=${dealer.id}`);
+    r = await fetch(`${base}/api/render?id=${dealer.id}`);
     assert(r.ok, 'GET /api/dealers/:id/render ok');
     const rendered = (await r.json()).rendered;
     assert(rendered.includes('Test Dealer'), 'rendered includes dealer name');

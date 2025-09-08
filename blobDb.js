@@ -1,24 +1,16 @@
-// blobDb.js - sqlite (sql.js) in-memory with persistence to Vercel Blob
-// Requirements:
-//  - Environment variable BLOB_READ_WRITE_TOKEN (Vercel Blob RW token)
-//  - Optional BLOB_DB_KEY (defaults to app.sqlite)
-// Exposes async functions compatible with sharedApi async usage.
-
 const initSqlJs = require('sql.js');
-const { list, put } = require('@vercel/blob');
 
 const BLOB_TOKEN = process.env.BLOB_READ_WRITE_TOKEN;
 if (!BLOB_TOKEN) throw new Error('blobDb loaded without BLOB_READ_WRITE_TOKEN');
 const BLOB_DB_KEY = process.env.BLOB_DB_KEY || 'app.sqlite';
-// New: allow configuring access level (Vercel Blob free tier only supports public)
 let BLOB_ACCESS = (process.env.BLOB_ACCESS || 'public').toLowerCase();
 if (BLOB_ACCESS !== 'public' && BLOB_ACCESS !== 'private') {
   console.warn('[blobDb] invalid BLOB_ACCESS value, falling back to public');
   BLOB_ACCESS = 'public';
 }
 
-let SQL; // sql.js module
-let db;  // sql.js Database instance
+let SQL;
+let db;
 let dirty = false;
 let uploadTimer;
 
@@ -68,7 +60,6 @@ async function performUpload(){
 
 function exportAndScheduleUpload(){
   dirty = true;
-  // In Vercel serverless, timers may not fire before freeze; rely on flushDirty()
   if (process.env.VERCEL) return;
   clearTimeout(uploadTimer);
   uploadTimer = setTimeout(()=> { if (dirty) performUpload(); }, 250);

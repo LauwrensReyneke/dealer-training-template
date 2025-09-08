@@ -1,16 +1,13 @@
-const path = require('path');
-const fs = require('fs');
 const express = require('express');
+const fs = require('fs');
+const path = require('path');
 
-// Adapter selection
-const db = process.env.LIBSQL_URL ? require('./remoteDb') : (process.env.BLOB_READ_WRITE_TOKEN ? require('./blobDb') : require('./db'));
+// Always use local embedded db implementation
+const db = require('./db');
 const { seedTemplateIfMissing, getTemplate, saveTemplate, listDealers, getDealer, createDealer, updateDealer, deleteDealer } = db;
 
 const TEMPLATE_FILE_PATH = path.join(__dirname, 'template.txt');
 let dataInitialized = false;
-const INSTANCE_ID = process.env.INSTANCE_ID || (Math.random().toString(36).slice(2,10));
-
-function storageMode(){ return process.env.LIBSQL_URL ? 'remote-libsql' : (process.env.BLOB_READ_WRITE_TOKEN ? 'vercel-blob' : 'in-memory-sqljs'); }
 
 async function initData(){
   if (dataInitialized) return;
@@ -34,62 +31,28 @@ function createApiRouter(){
 
   const zeroWidthRE = /[\u200B-\u200D\uFEFF]/g;
   const sanitizeId = id => (typeof id==='string'? id.replace(zeroWidthRE,'').trim(): '');
-  async function maybeFlush(){ if (process.env.BLOB_READ_WRITE_TOKEN) { try { const { flushDirty } = require('./blobDb'); if (flushDirty) await flushDirty(); } catch {} } }
   const notFound = (res,id)=> res.status(404).json({ error:'not_found', id });
   const bad = (res,err)=> res.status(400).json({ error: err });
   const serverErr = (res,e)=> res.status(500).json({ error:'server_error', message: e.message });
-
-  // Health
-  app.get('/health', (req,res)=> res.json({ ok:true, instance: INSTANCE_ID, storage: storageMode() }));
 
   // Template
   app.get('/template', async (_req,res)=>{ try { res.json({ template: await getTemplate() }); } catch(e){ serverErr(res,e); } });
   app.put('/template', async (req,res)=>{
     const { template } = req.body||{}; if (typeof template !== 'string') return bad(res,'invalid_template');
-    try { await saveTemplate(template); await maybeFlush(); res.json({ ok:true }); } catch(e){ serverErr(res,e); }
+    try { await saveTemplate(template); res.json({ ok:true }); } catch(e){ serverErr(res,e); }
   });
 
-  // List dealers
-  app.get('/dealers', async (_req,res)=>{ try { res.json({ dealers: await listDealers(), instance: INSTANCE_ID }); } catch(e){ serverErr(res,e); } });
+  // Dealers list
+  app.get('/dealers', async (_req,res)=>{ try { res.json({ dealers: await listDealers() }); } catch(e){ serverErr(res,e); } });
 
-  // Single dealer CRUD via query string
-  // GET /dealer?id=XYZ
-  app.get('/dealer', async (req,res)=>{
-    const id = sanitizeId(req.query.id); if (!id) return bad(res,'id_required');
-    try { const dealer = await getDealer(id); if (!dealer) return notFound(res,id); res.json({ dealer }); } catch(e){ serverErr(res,e); }
-  });
-  // POST /dealer (create)
-  app.post('/dealer', async (req,res)=>{
-    const { name, address='', number='', brand='' } = req.body||{}; if (!name) return bad(res,'name_required');
-    try { const id = Date.now().toString(36)+Math.random().toString(36).slice(2,6); const dealer = await createDealer({ id, name, address, number, brand }); await maybeFlush(); res.status(201).json({ dealer }); } catch(e){ serverErr(res,e); }
-  });
-  // PUT /dealer?id=XYZ
-  app.put('/dealer', async (req,res)=>{
-    const id = sanitizeId(req.query.id); if (!id) return bad(res,'id_required');
-    try { const dealer = await updateDealer(id, req.body||{}); if (!dealer) return notFound(res,id); await maybeFlush(); res.json({ dealer }); } catch(e){ serverErr(res,e); }
-  });
-  // DELETE /dealer?id=XYZ
-  app.delete('/dealer', async (req,res)=>{
-    const id = sanitizeId(req.query.id); if (!id) return bad(res,'id_required');
-    try { const existing = await getDealer(id); if (!existing) return notFound(res,id); await deleteDealer(id); await maybeFlush(); res.json({ ok:true }); } catch(e){ serverErr(res,e); }
-  });
-  // GET /dealer/render?id=XYZ[&raw][&debug]
-  app.get('/render', async (req,res)=>{
-    const id = sanitizeId(req.query.id); if (!id) return bad(res,'id_required');
-    const debug = 'debug' in req.query;
-    try {
-      const dealer = await getDealer(id); if (!dealer) return notFound(res,id);
-      const template = await getTemplate();
-      const rendered = renderTemplateForDealer(template, dealer);
-      if ('raw' in req.query || /text\/plain/.test(req.headers.accept||'')) {
-        res.set('Content-Type','text/plain; charset=utf-8');
-        if (debug) res.set('X-Debug-Info', JSON.stringify({ id, len: rendered.length }));
-        return res.send(rendered);
-      }
-      const body = { rendered, dealer }; if (debug) body.debug = { id, templateLength: template.length };
-      res.json(body);
-    } catch(e){ serverErr(res,e); }
-  });
+  // Dealer CRUD (query id)
+  app.get('/dealer', async (req,res)=>{ const id = sanitizeId(req.query.id); if (!id) return bad(res,'id_required'); try { const dealer = await getDealer(id); if (!dealer) return notFound(res,id); res.json({ dealer }); } catch(e){ serverErr(res,e); } });
+  app.post('/dealer', async (req,res)=>{ const { name, address='', number='', brand='' } = req.body||{}; if (!name) return bad(res,'name_required'); try { const id = Date.now().toString(36)+Math.random().toString(36).slice(2,6); const dealer = await createDealer({ id, name, address, number, brand }); res.status(201).json({ dealer }); } catch(e){ serverErr(res,e); } });
+  app.put('/dealer', async (req,res)=>{ const id = sanitizeId(req.query.id); if (!id) return bad(res,'id_required'); try { const dealer = await updateDealer(id, req.body||{}); if (!dealer) return notFound(res,id); res.json({ dealer }); } catch(e){ serverErr(res,e); } });
+  app.delete('/dealer', async (req,res)=>{ const id = sanitizeId(req.query.id); if (!id) return bad(res,'id_required'); try { const existing = await getDealer(id); if (!existing) return notFound(res,id); await deleteDealer(id); res.json({ ok:true }); } catch(e){ serverErr(res,e); } });
+
+  // Render
+  app.get('/render', async (req,res)=>{ const id = sanitizeId(req.query.id); if (!id) return bad(res,'id_required'); try { const dealer = await getDealer(id); if (!dealer) return notFound(res,id); const template = await getTemplate(); const rendered = renderTemplateForDealer(template, dealer); res.json({ rendered, dealer }); } catch(e){ serverErr(res,e); } });
 
   return app;
 }

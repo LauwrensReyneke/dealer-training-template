@@ -1,7 +1,3 @@
-// Remote persistent DB implementation using libSQL (Turso or libsql server)
-// Falls back to local db.js when LIBSQL_URL is not defined (handled in sharedApi.js)
-// Exposes the same API surface as db.js so sharedApi can stay unchanged.
-
 const { createClient } = require('@libsql/client');
 
 const url = process.env.LIBSQL_URL;
@@ -75,4 +71,3 @@ module.exports = {
   updateDealer,
   deleteDealer
 };
-

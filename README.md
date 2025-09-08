@@ -58,39 +58,3 @@ Serve production (Express + built assets + API):
 npm run serve
 ```
 Then open http://localhost:3000
-
-## Tests
-Integration API smoke test:
-```
-npm test
-```
-Persistence (verifies data survives restart locally):
-```
-npm run persistence:test
-```
-
-## Vercel Deployment
-Two options:
-1. Static + Serverless (current repo includes `api/` serverless functions):
-   - Vercel runs `npm run build` (builds client) per `vercel.json`.
-   - Static front-end served from `client/dist`.
-   - API served via serverless functions under `/api/*` (state WILL NOT persist across cold starts because sql.js writes to ephemeral storage). Use this mode for demo only.
-2. Single Node / Express (persistent local file not supported on Vercel’s serverless): deploy elsewhere (e.g. Render, Railway, Docker VPS) for real persistence.
-
-If you need persistence on Vercel, switch to an external DB (e.g. PlanetScale / Neon / Turso) and adapt `db.js`.
-
-## Data Persistence Notes
-- Local: durable across restarts (app.sqlite updated after each mutation).
-- Serverless: ephemeral; treat as volatile cache.
-
-## Extend
-Add new placeholders: extend mapping in `sharedApi.js` (renderTemplateForDealer) and `index.js` (if using Express only).
-
-## Future Enhancements
-- External DB adapter.
-- Import/export JSON snapshots.
-- Template version history.
-- Placeholder validation/highlighting.
-
-## License
-Private / internal tooling (no explicit license set).

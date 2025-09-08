@@ -10,12 +10,12 @@
     <section class="bg-white border rounded p-3 space-y-2">
       <h3 class="text-xs font-semibold tracking-wide text-gray-600">Insert Placeholder</h3>
       <div class="flex flex-wrap gap-2">
-        <button v-for="p in placeholders" :key="p" @click="insert(p)" class="px-2 py-1 text-xs rounded border bg-gray-50 hover:bg-gray-100 font-mono">{{ p }}</button>
+        <button v-for="p in placeholders" :key="p" @click="insertPlaceholder(p)" class="px-2 py-1 text-xs rounded border bg-gray-50 hover:bg-gray-100 font-mono">{{ p }}</button>
       </div>
     </section>
 
     <div>
-      <textarea ref="templateArea" v-model="localTemplate" class="w-full h-96 p-3 font-mono text-xs border rounded resize-none focus:outline-none focus:ring" />
+      <textarea ref="templateArea" v-model="localTemplate" class="w-full h-96 p-3 font-mono text-xs border rounded resize-none focus:outline-none focus:ring"></textarea>
     </div>
 
     <div class="flex gap-2 items-center">
@@ -27,21 +27,26 @@
 </template>
 <script setup>
 import { ref, onMounted } from 'vue';
+import { getTemplate, saveTemplate } from '../api';
+
+const placeholders = Object.freeze(['{{DEALER_NAME}}','{{ADDRESS}}','{{NUMBER}}','{{BRAND}}']);
 
 const localTemplate = ref('');
 const original = ref('');
 const status = ref('');
 const saving = ref(false);
 const templateArea = ref(null);
+let clearTimer;
 
-// Only named placeholders now
-const placeholders = ['{{DEALER_NAME}}','{{ADDRESS}}','{{NUMBER}}','{{BRAND}}'];
+function setStatus(msg, ttl=1200){
+  status.value = msg;
+  clearTimeout(clearTimer);
+  if (msg) clearTimer = setTimeout(()=> status.value='', ttl);
+}
 
-function insert(token){
-  const el = templateArea.value;
-  if (!el) return;
-  const start = el.selectionStart;
-  const end = el.selectionEnd;
+function insertPlaceholder(token){
+  const el = templateArea.value; if (!el) return;
+  const { selectionStart: start, selectionEnd: end } = el;
   const value = localTemplate.value;
   localTemplate.value = value.slice(0,start) + token + value.slice(end);
   requestAnimationFrame(()=> {
@@ -52,28 +57,23 @@ function insert(token){
 }
 
 async function load(){
-  status.value='Loading...';
+  setStatus('Loading...', 800);
   try {
-    const r = await fetch('/api/template');
-    const j = await r.json();
-    localTemplate.value = j.template || '';
-    original.value = j.template || '';
-    status.value = 'Loaded';
-    setTimeout(()=> status.value='', 1000);
-  } catch {
-    status.value='Failed to load';
-  }
+    const tpl = await getTemplate();
+    localTemplate.value = tpl; original.value = tpl;
+  } catch { setStatus('Load failed'); }
 }
+
 async function save(){
-  saving.value=true; status.value='Saving...';
+  saving.value = true; setStatus('Saving...');
   try {
-    await fetch('/api/template', { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ template: localTemplate.value }) });
+    await saveTemplate(localTemplate.value);
     original.value = localTemplate.value;
-    status.value='Saved';
-    setTimeout(()=> status.value='', 1200);
-  } catch { status.value='Save failed'; }
+    setStatus('Saved');
+  } catch { setStatus('Save failed'); }
   finally { saving.value=false; }
 }
+
 function reset(){ localTemplate.value = original.value; }
 
 onMounted(load);

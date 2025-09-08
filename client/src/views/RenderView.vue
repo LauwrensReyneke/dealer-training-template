@@ -5,14 +5,14 @@
       <RouterLink to="/dealers" class="text-sm text-blue-600 hover:underline">Manage Dealers</RouterLink>
     </div>
 
-    <div v-if="!dealers.length" class="text-sm text-gray-600 bg-white p-4 rounded border">
+    <div v-if="!dealers.length && !loading" class="text-sm text-gray-600 bg-white p-4 rounded border">
       No dealers yet. Please add one first.
     </div>
 
     <div v-else class="space-y-4">
       <div class="flex flex-wrap gap-4 items-end">
         <label class="text-xs font-medium">Select Dealer
-          <select v-model="selected" class="mt-1 border rounded px-2 py-1 text-sm min-w-[14rem]">
+          <select v-model="selected" class="mt-1 border rounded px-2 py-1 text-sm min-w-[14rem]" :disabled="loading">
             <option disabled value="">-- choose dealer --</option>
             <option v-for="d in dealers" :key="d.id" :value="d.id">{{ d.name }}</option>
           </select>
@@ -25,44 +25,51 @@
         <h3 class="font-medium text-sm">Preview</h3>
         <div class="p-4 border rounded bg-white whitespace-pre-wrap text-sm leading-relaxed min-h-[8rem]">{{ rendered }}</div>
       </div>
-      <div v-else class="text-sm text-gray-500">Select a dealer to render the template.</div>
+      <div v-else-if="!loading" class="text-sm text-gray-500">Select a dealer to render the template.</div>
     </div>
   </div>
 </template>
 <script setup>
 import { ref, watch, onMounted } from 'vue';
+import { listDealers, renderDealer, copyText } from '../api';
 
 const dealers = ref([]);
+const loading = ref(false);
 const selected = ref('');
 const rendered = ref('');
 const status = ref('');
+let timer;
+
+function setStatus(msg, ttl=1200){
+  status.value = msg;
+  clearTimeout(timer);
+  if (msg) timer = setTimeout(()=> status.value='', ttl);
+}
 
 async function loadDealers(){
-  try {
-    const r = await fetch('/api/dealers');
-    dealers.value = (await r.json()).dealers || [];
-  } catch { status.value='Failed to load dealers'; }
-}
-async function render(){
-  rendered.value='';
-  if (!selected.value) return;
-  status.value='Rendering...';
-  try {
-    const r = await fetch(`/api/render?id=${encodeURIComponent(selected.value)}`);
-    if (!r.ok) throw new Error();
-    const j = await r.json();
-    rendered.value = j.rendered;
-    status.value='Rendered';
-    setTimeout(()=> status.value='', 1200);
-  } catch { status.value='Render failed'; }
-}
-async function copy(){
-  if (!rendered.value) return;
-  try { await navigator.clipboard.writeText(rendered.value); status.value='Copied'; setTimeout(()=> status.value='', 1200); }
-  catch { status.value='Copy failed'; }
+  loading.value = true;
+  try { dealers.value = await listDealers(); }
+  catch { setStatus('Failed to load dealers'); }
+  finally { loading.value = false; }
 }
 
-watch(selected, render);
+async function doRender(){
+  rendered.value='';
+  if (!selected.value) return;
+  setStatus('Rendering...', 800);
+  try {
+    rendered.value = await renderDealer(selected.value);
+    setStatus('Rendered');
+  } catch { setStatus('Render failed'); }
+}
+
+async function copy(){
+  if (!rendered.value) return;
+  const ok = await copyText(rendered.value);
+  setStatus(ok ? 'Copied' : 'Copy failed');
+}
+
+watch(selected, doRender);
 
 onMounted(loadDealers);
 </script>

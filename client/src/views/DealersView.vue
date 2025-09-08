@@ -23,10 +23,12 @@
           <td class="p-2">{{ d.address }}</td>
           <td class="p-2">{{ d.number }}</td>
           <td class="p-2">{{ d.brand }}</td>
-          <td class="p-2 text-right space-x-2">
-            <button @click="copyTemplate(d)" :disabled="copyingId===d.id" class="px-2 py-1 text-xs rounded bg-blue-600 text-white disabled:opacity-50">{{ copyingId===d.id ? 'Copying…' : 'Copy Template' }}</button>
-            <button @click="openEdit(d)" class="px-2 py-1 text-xs rounded bg-blue-600 text-white">Edit</button>
-            <button @click="removeDealer(d)" class="px-2 py-1 text-xs rounded bg-red-600 text-white">Delete</button>
+          <td class="p-2"> <!-- Actions -->
+            <div class="flex flex-wrap justify-end gap-2">
+              <button @click="copyTemplate(d)" :disabled="copyingId===d.id" class="px-2 py-1 text-xs rounded bg-blue-600 text-white disabled:opacity-50">{{ copyingId===d.id ? 'Copying…' : 'Copy Template' }}</button>
+              <button @click="openEdit(d)" class="px-2 py-1 text-xs rounded bg-blue-500 text-white">Edit</button>
+              <button @click="removeDealer(d)" class="px-2 py-1 text-xs rounded bg-red-600 text-white">Delete</button>
+            </div>
           </td>
         </tr>
       </tbody>

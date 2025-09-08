@@ -23,7 +23,7 @@
           <td class="p-2">{{ d.address }}</td>
           <td class="p-2">{{ d.number }}</td>
           <td class="p-2">{{ d.brand }}</td>
-          <td class="p-2"> <!-- Actions -->
+          <td class="p-2">
             <div class="flex flex-wrap justify-end gap-2">
               <button @click="copyTemplate(d)" :disabled="copyingId===d.id" class="px-2 py-1 text-xs rounded bg-blue-600 text-white disabled:opacity-50">{{ copyingId===d.id ? 'Copying…' : 'Copy Template' }}</button>
               <button @click="openEdit(d)" class="px-2 py-1 text-xs rounded bg-blue-500 text-white">Edit</button>
@@ -37,29 +37,35 @@
 
     <div v-if="statusMsg" class="text-xs text-gray-600">{{ statusMsg }}</div>
 
-    <dialog ref="dialog" class="rounded shadow max-w-md w-full p-0">
-      <form @submit.prevent="save" class="p-4 space-y-3">
-        <h3 class="font-semibold">{{ form.id ? 'Edit Dealer' : 'New Dealer' }}</h3>
-        <div class="grid gap-2">
-          <label class="text-xs font-medium">Name
-            <input v-model="form.name" required class="mt-1 w-full border rounded px-2 py-1 text-sm" />
-          </label>
-          <label class="text-xs font-medium">Address
-            <input v-model="form.address" class="mt-1 w-full border rounded px-2 py-1 text-sm" />
-          </label>
-          <label class="text-xs font-medium">Number
-            <input v-model="form.number" class="mt-1 w-full border rounded px-2 py-1 text-sm" />
-          </label>
-          <label class="text-xs font-medium">Brand
-            <input v-model="form.brand" class="mt-1 w-full border rounded px-2 py-1 text-sm" />
-          </label>
+    <!-- Teleport Modal -->
+    <teleport to="body">
+      <div v-if="showModal" class="fixed inset-0 z-[1000]">
+        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="close"></div>
+        <div class="absolute inset-0 flex items-center justify-center p-4">
+          <form @submit.prevent="save" class="relative bg-white rounded shadow-lg w-full max-w-md p-5 space-y-4" novalidate>
+            <h3 class="font-semibold text-sm">{{ form.id ? 'Edit Dealer' : 'New Dealer' }}</h3>
+            <div class="grid gap-3">
+              <label class="text-xs font-medium">Name
+                <input v-model.trim="form.name" required class="mt-1 w-full border rounded px-2 py-1 text-sm" />
+              </label>
+              <label class="text-xs font-medium">Address
+                <input v-model.trim="form.address" class="mt-1 w-full border rounded px-2 py-1 text-sm" />
+              </label>
+              <label class="text-xs font-medium">Number
+                <input v-model.trim="form.number" class="mt-1 w-full border rounded px-2 py-1 text-sm" />
+              </label>
+              <label class="text-xs font-medium">Brand
+                <input v-model.trim="form.brand" class="mt-1 w-full border rounded px-2 py-1 text-sm" />
+              </label>
+            </div>
+            <div class="flex justify-end gap-2 pt-2">
+              <button type="button" @click="close" class="px-3 py-1.5 rounded bg-gray-200 text-sm">Cancel</button>
+              <button type="submit" :disabled="savingDealer || !form.name.trim()" class="px-3 py-1.5 rounded bg-blue-600 text-white text-sm disabled:opacity-40">{{ savingDealer ? 'Saving…' : 'Save' }}</button>
+            </div>
+          </form>
         </div>
-        <div class="flex justify-end gap-2 pt-2">
-          <button type="button" @click="close" class="px-3 py-1.5 rounded bg-gray-200 text-sm">Cancel</button>
-          <button type="submit" class="px-3 py-1.5 rounded bg-blue-600 text-white text-sm">Save</button>
-        </div>
-      </form>
-    </dialog>
+      </div>
+    </teleport>
   </div>
 </template>
 <script setup>
@@ -68,11 +74,12 @@ import { listDealers, createDealer, updateDealer, deleteDealer, renderDealer, co
 
 const dealers = ref([]);
 const loading = ref(false);
-const dialog = ref(null);
 const form = reactive({ id:'', name:'', address:'', number:'', brand:'' });
 const copyingId = ref('');
 const lastCopiedId = ref('');
 const statusMsg = ref('');
+const showModal = ref(false);
+const savingDealer = ref(false);
 let clearTimer;
 
 function setStatus(msg, ttl=1800){
@@ -88,17 +95,21 @@ async function load(){
   finally { loading.value = false; }
 }
 
-function openNew(){ Object.assign(form,{ id:'', name:'', address:'', number:'', brand:'' }); dialog.value.showModal(); }
-function openEdit(d){ Object.assign(form,d); dialog.value.showModal(); }
-function close(){ dialog.value.close(); }
+function openNew(){ Object.assign(form,{ id:'', name:'', address:'', number:'', brand:'' }); showModal.value=true; focusSoon(); }
+function openEdit(d){ Object.assign(form,d); showModal.value=true; focusSoon(); }
+function close(){ if (savingDealer.value) return; showModal.value=false; }
+function focusSoon(){ setTimeout(()=> { const el = document.querySelector('input[required]'); if (el) el.focus(); }, 20); }
 
 async function save(){
-  const payload = { name: form.name, address: form.address, number: form.number, brand: form.brand };
+  if (!form.name.trim()) return;
+  savingDealer.value = true;
+  const payload = { name: form.name.trim(), address: form.address.trim(), number: form.number.trim(), brand: form.brand.trim() };
   try {
     if (form.id) await updateDealer(form.id, payload); else await createDealer(payload);
     await load();
     close();
   } catch { setStatus('Save failed'); }
+  finally { savingDealer.value=false; }
 }
 
 async function removeDealer(d){
@@ -120,8 +131,11 @@ async function copyTemplate(d){
   finally { copyingId.value=''; }
 }
 
-onMounted(load);
+onMounted(()=>{
+  load();
+  window.addEventListener('keydown', e=>{ if (e.key==='Escape' && showModal.value) close(); });
+});
 </script>
 <style scoped>
-dialog::backdrop { background: rgba(0,0,0,0.35); }
+/* no dialog backdrop now */
 </style>

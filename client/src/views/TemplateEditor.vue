@@ -37,21 +37,26 @@
       <span class="text-sm" v-if="status">{{ status }}</span>
     </div>
 
-    <div v-if="showModal" class="fixed inset-0 z-40 flex items-center justify-center">
-      <div class="absolute inset-0 bg-black/40" @click="closeModal"></div>
-      <div class="relative bg-white rounded shadow-lg w-full max-w-sm p-5 space-y-4 z-10">
-        <h3 class="text-sm font-semibold" v-text="modalMode==='new' ? 'Create Template' : 'Rename Template'"></h3>
-        <div class="space-y-2">
-          <label class="block text-xs font-medium text-gray-600">Template Name</label>
-          <input v-model="modalInput" @keydown.enter.prevent="confirmModal" autofocus class="w-full border rounded px-2 py-1 text-sm" placeholder="" />
-          <p v-if="modalError" class="text-xs text-red-600">{{ modalError }}</p>
-        </div>
-        <div class="flex justify-end gap-2">
-          <button @click="closeModal" type="button" class="px-3 py-1.5 text-xs rounded border bg-gray-50 hover:bg-gray-100">Cancel</button>
-          <button @click="confirmModal" :disabled="submitting || !sanitizedModalInput" class="px-3 py-1.5 text-xs rounded bg-blue-600 text-white disabled:opacity-40" v-text="submitting ? 'Please wait' : (modalMode==='new' ? 'Create' : 'Rename')"></button>
+    <teleport to="body">
+      <div v-if="showModal" class="fixed inset-0 z-[1000]">
+        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="closeModal"></div>
+        <div class="absolute inset-0 flex items-center justify-center p-4">
+          <div class="relative bg-white rounded shadow-lg w-full max-w-sm p-5 space-y-4">
+            <h3 class="text-sm font-semibold" v-text="modalMode==='new' ? 'Create Template' : 'Rename Template'"></h3>
+            <div class="space-y-2">
+              <label class="block text-xs font-medium text-gray-600">Template Name</label>
+              <input v-model="modalInput" @keydown.enter.prevent="confirmModal" autofocus class="w-full border rounded px-2 py-1 text-sm"/>
+<!--              <p class="text-[11px] text-gray-500">Allowed: a-z A-Z 0-9 . _ - (max 48 chars)</p>-->
+              <p v-if="modalError" class="text-xs text-red-600">{{ modalError }}</p>
+            </div>
+            <div class="flex justify-end gap-2">
+              <button @click="closeModal" type="button" class="px-3 py-1.5 text-xs rounded border bg-gray-50 hover:bg-gray-100">Cancel</button>
+              <button @click="confirmModal" :disabled="submitting || !sanitizedModalInput" class="px-3 py-1.5 text-xs rounded bg-blue-600 text-white disabled:opacity-40" v-text="submitting ? 'Please wait' : (modalMode==='new' ? 'Create' : 'Rename')"></button>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
+    </teleport>
   </div>
 </template>
 <script setup>

@@ -116,7 +116,7 @@ async function removeDealer(d){
 async function copyTemplate(d){
   copyingId.value = d.id;
   try {
-    const r = await fetch(`/api/dealer/render?id=${encodeURIComponent(d.id)}`);
+    const r = await fetch(`/api/render?id=${encodeURIComponent(d.id)}`);
     if (!r.ok) throw new Error('render failed');
     const j = await r.json();
     const text = j.rendered || '';

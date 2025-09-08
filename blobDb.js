@@ -1,5 +1,4 @@
 const initSqlJs = require('sql.js');
-
 const BLOB_TOKEN = process.env.BLOB_READ_WRITE_TOKEN;
 if (!BLOB_TOKEN) throw new Error('blobDb loaded without BLOB_READ_WRITE_TOKEN');
 const BLOB_DB_KEY = process.env.BLOB_DB_KEY || 'app.sqlite';
@@ -15,7 +14,12 @@ let dirty = false;
 let uploadTimer;
 
 async function loadFromBlob(){
+let put, list;
+try { ({ put, list } = require('@vercel/blob')); }
+catch(e){ console.error('[blobDb] @vercel/blob load failed', e.message); }
+
   try {
+  if (!list) return false; // cannot load without list
     // list blobs with prefix (exact match acceptable)
     const { blobs } = await list({ prefix: BLOB_DB_KEY, token: BLOB_TOKEN, limit: 1 });
     const match = blobs.find(b => b.pathname === BLOB_DB_KEY || b.pathname.endsWith('/'+BLOB_DB_KEY));
@@ -39,6 +43,7 @@ async function loadFromBlob(){
 
 async function performUpload(){
   try {
+  if (!put) { console.warn('[blobDb] put unavailable; skipping upload'); return; }
     const data = db.export();
     await put(BLOB_DB_KEY, Buffer.from(data), {
       access: BLOB_ACCESS,
@@ -61,9 +66,13 @@ async function performUpload(){
 function exportAndScheduleUpload(){
   dirty = true;
   if (process.env.VERCEL) return;
-  clearTimeout(uploadTimer);
+  if (process.env.VERCEL) { // immediate upload in serverless to avoid missing timeout window
+    performUpload();
+    return;
+  }
   uploadTimer = setTimeout(()=> { if (dirty) performUpload(); }, 250);
-}
+  const delay = 250; // debounce locally
+  uploadTimer = setTimeout(()=> { if (dirty) performUpload(); }, delay);
 
 async function flushDirty(){ if (dirty) await performUpload(); }
 

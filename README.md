@@ -14,8 +14,17 @@ Synonyms:
 - {{PHONE}} (same as {{NUMBER}})
 
 ## Storage
-Single file DB: `data/app.sqlite` (sql.js in-memory + file persistence on each write).
-Delete the file to reset all data. The initial template seeds from `template.txt` if the DB is empty.
+Three persistence modes (auto-selected):
+1. Vercel Blob (if BLOB_READ_WRITE_TOKEN set) -> persisted across deployments in a single sqlite file blob.
+2. Local file (fallback) -> data/app.sqlite (persists locally, ephemeral on serverless cold starts without blob token).
+3. (Optional) Remote Turso/libSQL (if you wire remoteDb.js manually in sharedApi.js – currently disabled by default).
+
+Environment variables:
+- BLOB_READ_WRITE_TOKEN: enables blob mode.
+- BLOB_DB_KEY (optional): filename/key in blob storage (default: app.sqlite).
+- BLOB_ACCESS (public|private): blob access level (default public; private will auto-fallback to public if unsupported).
+
+On each write the DB is uploaded (immediately on Vercel, debounced locally) so template + dealers survive rebuilds/redeploys.
 
 ## Features
 - Edit and persist the template.
@@ -28,11 +37,11 @@ Delete the file to reset all data. The initial template seeds from `template.txt
 GET /api/template -> { template }
 PUT /api/template { template } -> { ok }
 GET /api/dealers -> { dealers }
-POST /api/dealers { name, address, number, brand } -> { dealer }
-PUT /api/dealers/:id -> { dealer }
-DELETE /api/dealers/:id -> { ok }
-GET /api/dealers/:id/render -> { rendered, dealer }
-GET /api/health -> { ok:true }
+POST /api/dealer { name, address, number, brand } -> { dealer }
+PUT /api/dealer?id=ID -> { dealer }
+DELETE /api/dealer?id=ID -> { ok }
+GET /api/render?id=ID -> { rendered, dealer }
+POST /api/populate -> { inserted, total }
 
 ## Development
 Requires Node 18+ (native fetch, WASM support).

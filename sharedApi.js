@@ -1,4 +1,3 @@
-// Shared API wiring for Express or Vite dev server middleware
 const path = require('path');
 const fs = require('fs');
 const express = require('express');
@@ -29,7 +28,7 @@ async function initData() {
   try {
     if (fs.existsSync(TEMPLATE_FILE_PATH)) {
       const fileContent = fs.readFileSync(TEMPLATE_FILE_PATH,'utf8');
-      if (fileContent.trim()) defaultTemplate = fileContent;
+      if (fileContent.trim()) defaultTemplate = fileContent; // raw use
     }
   } catch {}
   try { await seedTemplateIfMissing(defaultTemplate); } catch {}
@@ -50,7 +49,7 @@ function renderTemplateForDealer(template, dealer) {
     const re = new RegExp(`{{\\s*${key}\\s*}}`, 'g');
     template = template.replace(re, value);
   }
-  return template;
+  return template; // no trimming / normalization
 }
 
 function createApiRouter() {
@@ -60,7 +59,7 @@ function createApiRouter() {
   app.get('/health', async (req,res)=>{ res.json({ ok:true, instance: INSTANCE_ID, storage: process.env.LIBSQL_URL ? 'remote-libsql' : (process.env.BLOB_READ_WRITE_TOKEN ? 'vercel-blob' : 'in-memory-sqljs') }); });
 
   app.get('/template', async (req,res)=>{
-    try { res.json({ template: await getTemplate() }); }
+    try { const t = await getTemplate(); res.json({ template: t }); }
     catch (e) { res.status(500).json({ error:'Failed to read template' }); }
   });
   app.put('/template', async (req,res)=>{
@@ -111,7 +110,12 @@ function createApiRouter() {
       const template = await getTemplate();
       const rendered = renderTemplateForDealer(template, dealer);
       console.log('[render] success', { id, instance: INSTANCE_ID });
-      res.json({ rendered, dealer, instance: INSTANCE_ID });
+      const wantsRaw = 'raw' in req.query || /text\/plain/.test(req.headers.accept||'');
+      if (wantsRaw) {
+        res.set('Content-Type','text/plain; charset=utf-8').send(rendered);
+      } else {
+        res.json({ rendered, dealer, instance: INSTANCE_ID });
+      }
     } catch (e) {
       console.error('[render] error', { id, instance: INSTANCE_ID, msg: e.message });
       res.status(500).json({ error:'Failed to render', instance: INSTANCE_ID }); }

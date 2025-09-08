@@ -10,6 +10,12 @@ const { list, put } = require('@vercel/blob');
 const BLOB_TOKEN = process.env.BLOB_READ_WRITE_TOKEN;
 if (!BLOB_TOKEN) throw new Error('blobDb loaded without BLOB_READ_WRITE_TOKEN');
 const BLOB_DB_KEY = process.env.BLOB_DB_KEY || 'app.sqlite';
+// New: allow configuring access level (Vercel Blob free tier only supports public)
+let BLOB_ACCESS = (process.env.BLOB_ACCESS || 'public').toLowerCase();
+if (BLOB_ACCESS !== 'public' && BLOB_ACCESS !== 'private') {
+  console.warn('[blobDb] invalid BLOB_ACCESS value, falling back to public');
+  BLOB_ACCESS = 'public';
+}
 
 let SQL; // sql.js module
 let db;  // sql.js Database instance
@@ -41,7 +47,7 @@ function exportAndScheduleUpload(){
     try {
       const data = db.export();
       await put(BLOB_DB_KEY, Buffer.from(data), {
-        access: 'private',
+        access: BLOB_ACCESS,
         token: BLOB_TOKEN,
         contentType: 'application/octet-stream',
         addRandomSuffix: false,
@@ -49,6 +55,24 @@ function exportAndScheduleUpload(){
       dirty = false;
       // console.log('[blobDb] uploaded');
     } catch (e){
+      // If access must be public, retry once forcing public
+      if (/access must be \"public\"/i.test(e.message) && BLOB_ACCESS !== 'public') {
+        console.warn('[blobDb] retrying upload with public access');
+        BLOB_ACCESS = 'public';
+        try {
+          const data = db.export();
+            await put(BLOB_DB_KEY, Buffer.from(data), {
+              access: 'public',
+              token: BLOB_TOKEN,
+              contentType: 'application/octet-stream',
+              addRandomSuffix: false,
+            });
+            dirty = false;
+            return;
+        } catch (e2){
+          console.error('[blobDb] upload retry failed', e2.message);
+        }
+      }
       console.error('[blobDb] upload failed', e.message);
     }
   }, 250); // debounce rapid writes
@@ -122,4 +146,3 @@ module.exports = {
   updateDealer,
   deleteDealer
 };
-

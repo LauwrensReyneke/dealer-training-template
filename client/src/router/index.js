@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from 'vue-router';
+import { createRouter, createWebHashHistory } from 'vue-router';
 import TemplateEditor from '../views/TemplateEditor.vue';
 import DealersView from '../views/DealersView.vue';
 import RenderView from '../views/RenderView.vue';
@@ -9,5 +9,4 @@ const routes = [
   { path: '/render', component: RenderView }
 ];
 
-export default createRouter({ history: createWebHistory(), routes });
-
+export default createRouter({ history: createWebHashHistory(), routes });

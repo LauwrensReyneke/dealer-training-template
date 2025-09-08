@@ -6,11 +6,5 @@
     "api/**/*.js": {
       "includeFiles": "node_modules/sql.js/dist/sql-wasm.wasm"
     }
-  },
-  "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/$1" },
-    { "source": "/assets/(.*)", "destination": "/assets/$1" },
-    { "source": "/.*\\.(js|css|png|jpg|jpeg|svg|gif|ico|txt|map)", "destination": "/$0" },
-    { "source": "/(.*)", "destination": "/index.html" }
-  ]
+  }
 }

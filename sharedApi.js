@@ -2,8 +2,12 @@
 const path = require('path');
 const fs = require('fs');
 const express = require('express');
+
+// Choose DB adapter precedence: libsql > blob > local
+const db = process.env.LIBSQL_URL
+  ? require('./remoteDb')
+  : (process.env.BLOB_READ_WRITE_TOKEN ? require('./blobDb') : require('./db'));
 const {
-  init,
   seedTemplateIfMissing,
   getTemplate,
   saveTemplate,
@@ -12,14 +16,15 @@ const {
   createDealer,
   updateDealer,
   deleteDealer
-} = require('./db');
+} = db;
 
 const TEMPLATE_FILE_PATH = path.join(__dirname, 'template.txt');
 let dataInitialized = false;
+let INSTANCE_ID = process.env.INSTANCE_ID || (Math.random().toString(36).slice(2,10));
 
 async function initData() {
   if (dataInitialized) return;
-  await init; // wait for sql.js module
+  await db.init; // wait for DB init promise
   let defaultTemplate = 'Dealer: {{DEALER_NAME}}\nAddress: {{ADDRESS}}\nContact: {{NUMBER}}\nBrand: {{BRAND}}\n';
   try {
     if (fs.existsSync(TEMPLATE_FILE_PATH)) {
@@ -27,7 +32,7 @@ async function initData() {
       if (fileContent.trim()) defaultTemplate = fileContent;
     }
   } catch {}
-  try { seedTemplateIfMissing(defaultTemplate); } catch {}
+  try { await seedTemplateIfMissing(defaultTemplate); } catch {}
   dataInitialized = true;
 }
 
@@ -52,68 +57,69 @@ function createApiRouter() {
   const app = express();
   app.use(express.json());
 
-  app.get('/health', (req,res)=>{ res.json({ ok:true }); });
+  app.get('/health', async (req,res)=>{ res.json({ ok:true, instance: INSTANCE_ID, storage: process.env.LIBSQL_URL ? 'remote-libsql' : (process.env.BLOB_READ_WRITE_TOKEN ? 'vercel-blob' : 'in-memory-sqljs') }); });
 
-  app.get('/template', (req,res)=>{
-    try { res.json({ template: getTemplate() }); }
+  app.get('/template', async (req,res)=>{
+    try { res.json({ template: await getTemplate() }); }
     catch (e) { res.status(500).json({ error:'Failed to read template' }); }
   });
-  app.put('/template', (req,res)=>{
+  app.put('/template', async (req,res)=>{
     const { template } = req.body || {};
     if (typeof template !== 'string') return res.status(400).json({ error:'template must be string' });
-    try { saveTemplate(template); res.json({ ok:true }); }
+    try { await saveTemplate(template); res.json({ ok:true }); }
     catch { res.status(500).json({ error:'Failed to write template' }); }
   });
 
-  app.get('/dealers', (req,res)=>{
-    try { res.json({ dealers: listDealers() }); }
-    catch { res.status(500).json({ error:'Failed to read dealers' }); }
+  app.get('/dealers', async (req,res)=>{
+    try { const dealers = await listDealers(); console.log('[dealers] list', { instance: INSTANCE_ID, count: dealers.length }); res.json({ dealers, instance: INSTANCE_ID }); }
+    catch { res.status(500).json({ error:'Failed to read dealers', instance: INSTANCE_ID }); }
   });
-  app.post('/dealers', (req,res)=>{
+  app.post('/dealers', async (req,res)=>{
     const { name, address, number, brand } = req.body || {};
     if (!name) return res.status(400).json({ error:'name required' });
     try {
       const id = Date.now().toString(36) + Math.random().toString(36).slice(2,6);
-      const dealer = createDealer({ id, name, address, number, brand });
+      const dealer = await createDealer({ id, name, address, number, brand });
       res.status(201).json({ dealer });
     } catch { res.status(500).json({ error:'Failed to create dealer' }); }
   });
-  app.put('/dealers/:id', (req,res)=>{
+  app.put('/dealers/:id', async (req,res)=>{
     const { id } = req.params;
     try {
-      const d = updateDealer(id, req.body || {});
+      const d = await updateDealer(id, req.body || {});
       if (!d) return res.status(404).json({ error:'not found' });
       res.json({ dealer:d });
     } catch { res.status(500).json({ error:'Failed to update dealer' }); }
   });
-  app.delete('/dealers/:id', (req,res)=>{
+  app.delete('/dealers/:id', async (req,res)=>{
     const { id } = req.params;
     try {
-      const existing = getDealer(id);
+      const existing = await getDealer(id);
       if (!existing) return res.status(404).json({ error:'not found' });
-      deleteDealer(id);
+      await deleteDealer(id);
       res.json({ ok:true });
     } catch { res.status(500).json({ error:'Failed to delete dealer' }); }
   });
-  app.get('/dealers/:id/render', (req,res)=>{
+  app.get('/dealers/:id/render', async (req,res)=>{
     const { id } = req.params;
     try {
-      const dealer = getDealer(id);
+      const dealer = await getDealer(id);
       if (!dealer || !dealer.id) {
-        console.warn('[render] dealer not found id=', id);
-        return res.status(404).json({ error:'dealer not found', id });
+        console.warn('[render] dealer not found', { id, instance: INSTANCE_ID });
+        return res.status(404).json({ error:'dealer not found', id, instance: INSTANCE_ID });
       }
-      const template = getTemplate();
+      const template = await getTemplate();
       const rendered = renderTemplateForDealer(template, dealer);
-      res.json({ rendered, dealer });
+      console.log('[render] success', { id, instance: INSTANCE_ID });
+      res.json({ rendered, dealer, instance: INSTANCE_ID });
     } catch (e) {
-      console.error('[render] error', e);
-      res.status(500).json({ error:'Failed to render' }); }
+      console.error('[render] error', { id, instance: INSTANCE_ID, msg: e.message });
+      res.status(500).json({ error:'Failed to render', instance: INSTANCE_ID }); }
   });
 
   // Debug endpoint (not for production) to inspect current dealers
-  app.get('/debug/dealers', (req,res)=>{
-    try { res.json({ dealers: listDealers() }); }
+  app.get('/debug/dealers', async (req,res)=>{
+    try { res.json({ dealers: await listDealers() }); }
     catch { res.status(500).json({ error:'debug list failed' }); }
   });
 

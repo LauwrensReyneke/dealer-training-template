@@ -96,9 +96,9 @@ async function save(){
   const payload = { name: form.name, address: form.address, number: form.number, brand: form.brand };
   try {
     if (form.id){
-      await fetch(`/api/dealers/${form.id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+      await fetch(`/api/dealer?id=${encodeURIComponent(form.id)}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
     } else {
-      await fetch('/api/dealers', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+      await fetch('/api/dealer', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
     }
     await load();
     close();
@@ -109,21 +109,20 @@ async function save(){
 async function removeDealer(d){
   if (!confirm(`Delete dealer ${d.name}?`)) return;
   try {
-    await fetch(`/api/dealers/${d.id}`, { method:'DELETE' });
+    await fetch(`/api/dealer?id=${encodeURIComponent(d.id)}`, { method:'DELETE' });
     await load();
   } catch { setStatus('Delete failed'); }
 }
 async function copyTemplate(d){
   copyingId.value = d.id;
   try {
-    const r = await fetch(`/api/dealers/${d.id}/render`);
+    const r = await fetch(`/api/dealer/render?id=${encodeURIComponent(d.id)}`);
     if (!r.ok) throw new Error('render failed');
     const j = await r.json();
     const text = j.rendered || '';
     if (!text) throw new Error('empty render');
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch {
+    try { await navigator.clipboard.writeText(text); }
+    catch {
       const ta = document.createElement('textarea');
       ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
     }

@@ -48,7 +48,7 @@ async function render(){
   if (!selected.value) return;
   status.value='Rendering...';
   try {
-    const r = await fetch(`/api/dealers/${selected.value}/render`);
+    const r = await fetch(`/api/dealer/render?id=${encodeURIComponent(selected.value)}`);
     if (!r.ok) throw new Error();
     const j = await r.json();
     rendered.value = j.rendered;

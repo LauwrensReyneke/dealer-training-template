@@ -19,8 +19,8 @@ process.env.PORT = '0';
     r = await fetch(base + '/api/template', { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ template: modified }) });
     assert(r.ok, 'PUT /api/template ok');
 
-    r = await fetch(base + '/api/dealers', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ name:'Test Dealer', address:'1 Test Way', number:'123', brand:'BrandX' }) });
-    assert(r.ok, 'POST /api/dealers ok');
+    r = await fetch(base + '/api/dealer', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ name:'Test Dealer', address:'1 Test Way', number:'123', brand:'BrandX' }) });
+    assert(r.ok, 'POST /api/dealer ok');
     const dealer = (await r.json()).dealer;
     assert(dealer && dealer.id, 'dealer created with id');
 
@@ -29,12 +29,12 @@ process.env.PORT = '0';
     const list = (await r.json()).dealers;
     assert(Array.isArray(list) && list.some(d=>d.id===dealer.id), 'dealer present in list');
 
-    r = await fetch(`${base}/api/dealers/${dealer.id}/render`);
+    r = await fetch(`${base}/api/dealer/render?id=${dealer.id}`);
     assert(r.ok, 'GET /api/dealers/:id/render ok');
     const rendered = (await r.json()).rendered;
     assert(rendered.includes('Test Dealer'), 'rendered includes dealer name');
 
-    await fetch(`${base}/api/dealers/${dealer.id}`, { method:'DELETE' });
+    await fetch(`${base}/api/dealer?id=${dealer.id}`, { method:'DELETE' });
     await fetch(base + '/api/template', { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ template: orig }) });
 
     console.log('ALL TESTS PASSED');

@@ -73,6 +73,7 @@ function prepare(sql){ return db.prepare(sql); }
 function initSchema(){
   run(`CREATE TABLE IF NOT EXISTS templates (\n  key TEXT PRIMARY KEY,\n  content TEXT NOT NULL,\n  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP\n);`);
   run(`CREATE TABLE IF NOT EXISTS dealers (\n  id TEXT PRIMARY KEY,\n  name TEXT NOT NULL,\n  address TEXT DEFAULT '',\n  number TEXT DEFAULT '',\n  brand TEXT DEFAULT '',\n  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,\n  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP\n);`);
+  try { run(`CREATE UNIQUE INDEX IF NOT EXISTS dealers_name_unique ON dealers (lower(name));`); } catch(_) {}
 }
 
 async function seedTemplateIfMissing(defaultContent){
@@ -115,6 +116,35 @@ async function deleteDealer(id){
   exportAndScheduleUpload();
 }
 
+function upsertDealers(list){
+  if (!Array.isArray(list) || !list.length) return 0;
+  const findByName = prepare('SELECT id FROM dealers WHERE lower(name)=lower(?) LIMIT 1');
+  const insertStmt = prepare('INSERT INTO dealers (id,name,address,number,brand) VALUES (?,?,?,?,?)');
+  let inserted = 0;
+  run('BEGIN');
+  for (const d of list){
+    if (!d) continue;
+    const name = (d.name || d["Dealer Name"] || d.dealerName || '').trim();
+    if (!name) continue;
+    const exists = findByName.getAsObject([name]);
+    if (exists && exists.id) continue;
+    const address = (d.address || d.Address || '').trim();
+    const number = (d.number || d.Number || '').trim();
+    const brand = (d.brand || d.Brand || '').trim();
+    const baseSlug = name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,48) || (Date.now().toString(36));
+    let id = baseSlug;
+    let attempt = 0;
+    while (prepare('SELECT 1 AS x FROM dealers WHERE id=?').getAsObject([id]).x && attempt < 3){
+      id = baseSlug + '-' + Math.random().toString(36).slice(2,6);
+      attempt++;
+    }
+    try { insertStmt.run([id,name,address,number,brand]); inserted++; } catch(_){ }
+  }
+  run('COMMIT');
+  if (inserted) exportAndScheduleUpload();
+  return inserted;
+}
+
 const init = (async () => {
   SQL = await initSqlJs({ locateFile: f => require.resolve('sql.js/dist/' + f) });
   const loaded = await loadFromBlob();
@@ -134,5 +164,6 @@ module.exports = {
   createDealer,
   updateDealer,
   deleteDealer,
-  flushDirty
+  flushDirty,
+  upsertDealers
 };

@@ -1,0 +1,338 @@
+[
+  {
+    "Dealer Name": "FAW Roodepoort",
+    "Address": "Cnr Shaft Street &, Main Reef Rd, Stormill, Johannesburg, 1709",
+    "Number": "010 593 4388",
+    "Brand": "FAW"
+  },
+  {
+    "Dealer Name": "Mazda Edenvale",
+    "Address": "Cnr. Aitken Road &, Van Riebeeck Ave, Greenstone Hill, Edenvale, 1609",
+    "Number": "010 442 0447",
+    "Brand": "Mazda"
+  },
+  {
+    "Dealer Name": "Mercedes-Benz Grand Central",
+    "Address": "New Rd &, Lever Rd, Midridge Park, Midrand, 1685",
+    "Number": "011 347 8000",
+    "Brand": "Mercedes-Benz"
+  },
+  {
+    "Dealer Name": "Northwest Nissan",
+    "Address": "47 Ontdekkers Rd, Wilro Park, Roodepoort, 1724",
+    "Number": "010 593 2880",
+    "Brand": "Nissan"
+  },
+  {
+    "Dealer Name": "Nash Nissan",
+    "Address": "3 Voortrekker Rd, Alberton, Johannesburg, 1449",
+    "Number": "010 593 4331",
+    "Brand": "Nissan"
+  },
+  {
+    "Dealer Name": "Orbit Commercial Worcester",
+    "Address": "5 Louis Lange St, Worcester, 6849",
+    "Number": "023 342 2420",
+    "Brand": "Mercedes-Benz and FUSO"
+  },
+  {
+    "Dealer Name": "TATA Rustenburg",
+    "Address": "Korokoro St, Waterval East, Rustenburg, 0299",
+    "Number": "014 001 0575",
+    "Brand": "TATA"
+  },
+  {
+    "Dealer Name": "TATA Edenvale",
+    "Address": "Cnr. Aitken Road &, Van Riebeeck Ave, Greenstone Hill, Edenvale, 1609",
+    "Number": "010 442 0447",
+    "Brand": "Mazda"
+  },
+  {
+    "Dealer Name": "Ford Stellenbosch",
+    "Address": "113 Bird St, La Colline, Stellenbosch, 7600",
+    "Number": "021 886 5926",
+    "Brand": "Ford"
+  },
+  {
+    "Dealer Name": "MG Paarl",
+    "Address": "Suid Agter Paarl Road &, Old Paarl Rd, Paarl, 7645",
+    "Number": "021 002 3554",
+    "Brand": "MG"
+  },
+  {
+    "Dealer Name": "MG East Rand",
+    "Address": "15 Bentel Ave, Klipfontein 83-Ir, Boksburg, 1462",
+    "Number": "010 001 8643",
+    "Brand": "MG"
+  },
+  {
+    "Dealer Name": "MG Edenvale",
+    "Address": "Van Riebeeck Ave, Modderfontein, Lethabong, 1609",
+    "Number": "010 001 8642",
+    "Brand": "MG"
+  },
+  {
+    "Dealer Name": "MG Alberton",
+    "Address": "3 Voortrekker Rd, Alberton, Johannesburg, 1449",
+    "Number": "010 001 8640",
+    "Brand": "MG"
+  },
+  {
+    "Dealer Name": "MG Rustenburg",
+    "Address": "5 Korokoro St, Rustenburg Rural, Rustenburg, 2999",
+    "Number": "014 001 1502",
+    "Brand": "MG"
+  },
+  {
+    "Dealer Name": "Foton Rustenburg",
+    "Address": "Cnr Marlin &, Korokoro St, Waterval East, Rustenburg, 0299",
+    "Number": "014 940 5665",
+    "Brand": "Foton"
+  },
+  {
+    "Dealer Name": "Foton Edenvale",
+    "Address": "146 Van Riebeeck Ave, Gauteng, Edenvale, 1610",
+    "Number": "010 823 7425",
+    "Brand": "Foton"
+  },
+  {
+    "Dealer Name": "Foton Springs",
+    "Address": "140 2nd St, Springs New, Springs, 1560",
+    "Number": "087 007 0015",
+    "Brand": "Foton"
+  },
+  {
+    "Dealer Name": "Foton Mbombela",
+    "Address": "Madiba Dr, R40, Mbombela, 1201",
+    "Number": "087 007 0016",
+    "Brand": "Foton"
+  },
+  {
+    "Dealer Name": "Jetour Rustenburg",
+    "Address": "Cnr New Rd &, Lever Rd, Midridge Park, Midrand, 1685",
+    "Number": "010 001 8639",
+    "Brand": "Jetour"
+  },
+  {
+    "Dealer Name": "Jetour Mbombela",
+    "Address": "R40 Madiba Dr, Riverside park, Mbombela, 1200",
+    "Number": "010 001 8634",
+    "Brand": "Jetour"
+  },
+  {
+    "Dealer Name": "Jetour Midrand",
+    "Address": "Cnr New Rd &, Lever Rd, Midridge Park, Midrand, 1685",
+    "Number": "011 347 8000",
+    "Brand": "Jetour"
+  },
+  {
+    "Dealer Name": "UD Trucks Rustenburg",
+    "Address": "Korokoro Drive, Waterval East, Rustenburg, 2999",
+    "Number": "014 592 3030",
+    "Brand": "UD"
+  },
+  {
+    "Dealer Name": "Mazda East Rand",
+    "Address": "13 Bentel Ave, Jansen Park, Boksburg, 1459",
+    "Number": "010 595 7678",
+    "Brand": "Mazda"
+  },
+  {
+    "Dealer Name": "Lionel Motors Renault",
+    "Address": "5 Korokoro St, Rustenburg Rural, Rustenburg, 2999",
+    "Number": "014 940 1274",
+    "Brand": "Renault"
+  },
+  {
+    "Dealer Name": "Lionel Motors Nissan",
+    "Address": "Cnr Martin & Koro Koro Street, Magaliesview, Rustenburg, 0300",
+    "Number": "014 940 1279",
+    "Brand": "Nissan"
+  },
+  {
+    "Dealer Name": "Mazda Rustenburg",
+    "Address": "Korokoro St, Waterval East, Rustenburg, 2999",
+    "Number": "014 940 0137",
+    "Brand": "Mazda"
+  },
+  {
+    "Dealer Name": "Ford Rustenburg",
+    "Address": "Korokoro St, Waterval East, Rustenburg, 2999",
+    "Number": "014 940 0137",
+    "Brand": "Ford"
+  },
+  {
+    "Dealer Name": "JLR Rustenburg",
+    "Address": "C/O KoroKoro & Umlingo street, Waterfall East, Rustenburg, North West, 0299",
+    "Number": "060 584 7747",
+    "Brand": "Jaguar and Land Rover"
+  },
+  {
+    "Dealer Name": "JLR Nelspruit",
+    "Address": "R40 Madiba Drive, Riverside Park, Nelspruit, Mpumalanga, 1200",
+    "Number": "013 760 1000",
+    "Brand": "Jaguar and Land Rover"
+  },
+  {
+    "Dealer Name": "JLR Limpopo",
+    "Address": "1 Buffalo Thorn Crescent, Boabab Gardens, Munnik Avenue, Polokwane, Limpopo",
+    "Number": "015 590 2900",
+    "Brand": "Jaguar and Land Rover"
+  },
+  {
+    "Dealer Name": "JLR East Rand",
+    "Address": "Cnr K90 &, Bentel Ave, Klipfontein 83-Ir, Boksburg, 1462",
+    "Number": "011 841 3050",
+    "Brand": "Jaguar and Land Rover"
+  },
+  {
+    "Dealer Name": "Hino Isando",
+    "Address": "Corner of Barbara Rd, Brollo Rd, Tunney, Germiston, 1614",
+    "Number": "011 387 3700",
+    "Brand": "Hino"
+  },
+  {
+    "Dealer Name": "Grand Central Motors Midrand",
+    "Address": "New Rd, Midridge Park, Midrand, 1685",
+    "Number": "011 347 8000",
+    "Brand": "Jeep"
+  },
+  {
+    "Dealer Name": "Chery Boksburg",
+    "Address": "16 Cynthia St, Bardene, Boksburg, 1459",
+    "Number": "010 823 7176",
+    "Brand": "Chery"
+  },
+  {
+    "Dealer Name": "Cassey’s Ford Springs",
+    "Address": "140 2nd St, Springs New, Springs, 1560",
+    "Number": "010 593 2829",
+    "Brand": "Ford"
+  },
+  {
+    "Dealer Name": "Basil Green Ford",
+    "Address": "CNR Van Riebeeck Avenue and, Aitken Rd, Modderfontein, Lethabong, 1609",
+    "Number": "010 594 3653",
+    "Brand": "Ford"
+  },
+  {
+    "Dealer Name": "Audi Rustenburg",
+    "Address": "Cnr Marlin Rd &, Korokoro St, Waterval East, Rustenburg, 2999",
+    "Number": "014 940 0151",
+    "Brand": "Audi"
+  },
+  {
+    "Dealer Name": "Cassey's Ford Benoni",
+    "Address": "Lakeside Mall, Mowbray Ave &, Tom Jones St, Benoni, 1501",
+    "Number": "010 593 2827",
+    "Brand": "Ford"
+  },
+  {
+    "Dealer Name": "Mercedes-Benz Paarl",
+    "Address": "Zandwyk Park, Mercedes Benz, Old Paarl Rd, Paarl, 7645",
+    "Number": "021 860 4000",
+    "Brand": "Mercedes-Benz"
+  },
+  {
+    "Dealer Name": "Mercedes-Benz Stellenbosch",
+    "Address": "113 Bird St, La Colline, Stellenbosch, 7599",
+    "Number": "021 861 3600",
+    "Brand": "Mercedes-Benz"
+  },
+  {
+    "Dealer Name": "Mercedes-Benz Constantiaberg",
+    "Address": "Cnr of Vans Road &, Tokai Rd, Constantia, Cape Town, 7945",
+    "Number": "021 674 4150",
+    "Brand": "Mercedes-Benz"
+  },
+  {
+    "Dealer Name": "Tommy Martin Eagle Canyon",
+    "Address": "Christiaan de Wet Rd &, Blueberry St, Honeydew, Randburg, 2195",
+    "Number": "010 597 1522",
+    "Brand": "Isuzu"
+  },
+  {
+    "Dealer Name": "Mercedes-Benz Century City",
+    "Address": "Century Boulevard &, Mercantile Rd, Century City, Cape Town",
+    "Number": "021 528 0400",
+    "Brand": "Mercedes-Benz"
+  },
+  {
+    "Dealer Name": "Volkswagen Rustenburg",
+    "Address": "Wall St, Rustenburg Rural, Rustenburg",
+    "Number": "014 940 1273",
+    "Brand": "Volkswagen"
+  },
+  {
+    "Dealer Name": "Suzuki Edenvale",
+    "Address": "PI, Greenstone Pl, Modderfontein, Lethabong, 1609",
+    "Number": "010 823 5902",
+    "Brand": "Suzuki"
+  },
+  {
+    "Dealer Name": "Suzuki Bedfordview",
+    "Address": "Nicol Rd, Kensington, Johannesburg, 2101",
+    "Number": "010 823 8245",
+    "Brand": "Suzuki"
+  },
+  {
+    "Dealer Name": "Suzuki Boksburg",
+    "Address": "15 Bentel Ave, Jansen Park, Boksburg, 1459",
+    "Number": "010 593 4429",
+    "Brand": "Suzuki"
+  },
+  {
+    "Dealer Name": "Rand Stadium Toyota",
+    "Address": "4A Amanda Ave, Gleneagles, Johannesburg, 2190",
+    "Number": "010 001 9184",
+    "Brand": "Toyota"
+  },
+  {
+    "Dealer Name": "Lexus The Glen",
+    "Address": "4A Amanda Ave, Gleneagles, Johannesburg, 2190",
+    "Number": "010 593 2893",
+    "Brand": "Lexus"
+  },
+  {
+    "Dealer Name": "Haval/GWM Northcliff",
+    "Address": "288 Willowview Dr, Northcliff, Randburg, 2195",
+    "Number": "010 823 6200",
+    "Brand": "Haval/GWM"
+  },
+  {
+    "Dealer Name": "Haval/GWM East Rand",
+    "Address": "13 Bentel Ave, Jansen Park, Boksburg, 1462",
+    "Number": "010 001 8603",
+    "Brand": "Haval/GWM"
+  },
+  {
+    "Dealer Name": "Haval/GWM Benoni",
+    "Address": "Cnr Mowbray Avenue, Tom Jones St, Benoni, Johannesburg, 1501",
+    "Number": "010 823 6272",
+    "Brand": "Haval/GWM"
+  },
+  {
+    "Dealer Name": "Orbit Commercial Cape Town",
+    "Address": "Winelands Business Park, 28 Sandringham Rd, Kraaifontein, Cape Town, 7570",
+    "Number": "021 550 9600",
+    "Brand": "Mercedes-Benz/ Fuso"
+  },
+  {
+    "Dealer Name": "FCA Midrand",
+    "Address": "16 Cynthia St, Bardene, Boksburg, 14590",
+    "Number": "010 594 3656",
+    "Brand": "Jeep/Fiat/Alfa Romeo"
+  },
+  {
+    "Dealer Name": "Edenvale Nissan",
+    "Address": "Van Riebeeck Ave, Modderfontein, Lethabong, 1609",
+    "Number": "010 593 2846",
+    "Brand": "Nissan"
+  },
+  {
+    "Dealer Name": "Arnold Chatz Cars",
+    "Address": "15 J.G. Strydom Rd, Weltevredenpark, Johannesburg, 1709",
+    "Number": "010 823 8154",
+    "Brand": "Abarth/ Alfa Romeo/ Fiat/ Fiat Professional/ Jeep/ Opel/ Citroen/ Peugeot"
+  }
+]

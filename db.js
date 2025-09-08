@@ -77,6 +77,35 @@ function migrateDealersFromJson(jsonPath) {
   } catch {/* ignore */}
 }
 
+function upsertDealers(list){
+  if (!Array.isArray(list) || !list.length) return 0;
+  const findByNameStmt = prepare('SELECT id FROM dealers WHERE lower(name)=lower(?) LIMIT 1');
+  const insertStmt = prepare('INSERT INTO dealers (id,name,address,number,brand) VALUES (?,?,?,?,?)');
+  let inserted = 0;
+  run('BEGIN');
+  for (const d of list){
+    if (!d) continue;
+    const name = (d.name || d["Dealer Name"] || d.dealerName || '').trim();
+    if (!name) continue;
+    const exists = findByNameStmt.getAsObject([name]);
+    if (exists && exists.id) continue;
+    const address = (d.address || d.Address || '').trim();
+    const number = (d.number || d.Number || '').trim();
+    const brand = (d.brand || d.Brand || '').trim();
+    const baseSlug = name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,48) || (Date.now().toString(36));
+    let id = baseSlug;
+    let attempt = 0;
+    while (prepare('SELECT 1 AS x FROM dealers WHERE id=?').getAsObject([id]).x && attempt < 3) {
+      id = baseSlug + '-' + Math.random().toString(36).slice(2,6);
+      attempt++;
+    }
+    try { insertStmt.run([id, name, address, number, brand]); inserted++; } catch(_){ }
+  }
+  run('COMMIT');
+  if (inserted) persist();
+  return inserted;
+}
+
 // Template API
 function getTemplate(){
   const r = prepare('SELECT content FROM templates WHERE key=?').getAsObject(['main']);
@@ -136,6 +165,7 @@ module.exports = {
   init,
   seedTemplateIfMissing,
   migrateDealersFromJson,
+  upsertDealers,
   getTemplate,
   saveTemplate,
   listDealers,

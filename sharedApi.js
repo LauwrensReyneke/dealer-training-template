@@ -2,9 +2,9 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 
-// Always use local embedded db implementation
-const db = require('./db');
-const { seedTemplateIfMissing, getTemplate, saveTemplate, listDealers, getDealer, createDealer, updateDealer, deleteDealer } = db;
+// Dynamic storage selection: blobDb (blob persistence) > local embedded db
+const storage = process.env.BLOB_READ_WRITE_TOKEN ? require('./blobDb') : require('./db');
+const { seedTemplateIfMissing, getTemplate, saveTemplate, listDealers, getDealer, createDealer, updateDealer, deleteDealer, upsertDealers } = storage;
 
 const TEMPLATE_FILE_PATH = path.join(__dirname, 'template.txt');
 let dataInitialized = false;
@@ -12,7 +12,7 @@ let dataInitialized = false;
 async function initData(){
   if (dataInitialized) return;
   await db.init;
-  let def = 'Dealer: {{DEALER_NAME}}\nAddress: {{ADDRESS}}\nContact: {{NUMBER}}\nBrand: {{BRAND}}\n';
+  await storage.init;
   try { if (fs.existsSync(TEMPLATE_FILE_PATH)) { const t = fs.readFileSync(TEMPLATE_FILE_PATH,'utf8'); if (t.trim()) def = t; } } catch {}
   try { await seedTemplateIfMissing(def); } catch {}
   dataInitialized = true;

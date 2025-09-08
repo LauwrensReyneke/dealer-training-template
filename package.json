@@ -1,10 +1,23 @@
 {
-  "name": "${PROJECT_NAME}",
+  "name": "templating-engine",
   "version": "1.0.0",
-  "description": "",
+  "description": "Dealer template editor and population tool (Vue3 + Tailwind, embedded API)",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "npm --prefix client run dev",
+    "build": "npm install --prefix client && npm --prefix client run build",
+    "preview": "npm --prefix client run preview",
+    "serve": "node index.js",
+    "test": "node serverTest.js",
+    "persistence:test": "node persistenceTest.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "sql.js": "^1.13.0"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
   },
   "private": true
 }

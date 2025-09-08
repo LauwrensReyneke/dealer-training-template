@@ -1,82 +1,96 @@
 # Dealer Templating Engine
 
-Vue 3 + Tailwind front-end with an Express backend for editing a text template containing placeholder variables and rendering it with dealer data.
+Vue 3 + Tailwind front-end with an embedded SQLite (sql.js) template + dealer API.
 
 ## Placeholders
-Use the following placeholders in template.txt:
+Use these in template.txt:
 - {{DEALER_NAME}}
 - {{ADDRESS}}
 - {{NUMBER}}
 - {{BRAND}}
 
-Synonyms also supported:
-- {{NAME}} (same as {{DEALER_NAME}})
+Synonyms:
+- {{NAME}} (dealer name)
 - {{PHONE}} (same as {{NUMBER}})
 
-## Storage (Lightweight DB)
-The app now uses an embedded SQLite database powered by sql.js (pure JS/WASM) stored at:
-- data/app.sqlite
-
-Characteristics:
-- Zero external service required (file-based, cross-platform).
-- Fully in-process; safe for low-concurrency internal tooling.
-- Every write (template/dealer CRUD) persists to disk.
-- If template.txt or dealers.json exist, they are used once for initial seeding.
-
-To reset data, delete data/app.sqlite and restart the server.
+## Storage
+Single file DB: `data/app.sqlite` (sql.js in-memory + file persistence on each write).
+Delete the file to reset all data. The initial template seeds from `template.txt` if the DB is empty.
 
 ## Features
-- Edit and persist the raw template through UI or API.
-- Insert placeholder tokens via quick buttons.
-- Manage dealers (create, update, delete).
-- Render template for a selected dealer and copy the result.
-- Simple REST API for integration / automation.
+- Edit and persist the template.
+- Dealer CRUD.
+- Render + copy populated template per dealer (from Dealers tab or Render tab).
+- Copy template button directly on each dealer row.
+- Unified dev server: Vite + embedded API (no proxy required).
 
 ## API Summary
 GET /api/template -> { template }
 PUT /api/template { template } -> { ok }
-GET /api/dealers -> { dealers: [...] }
+GET /api/dealers -> { dealers }
 POST /api/dealers { name, address, number, brand } -> { dealer }
 PUT /api/dealers/:id -> { dealer }
 DELETE /api/dealers/:id -> { ok }
 GET /api/dealers/:id/render -> { rendered, dealer }
+GET /api/health -> { ok:true }
 
-## Dev Setup
-Requires Node 18+.
+## Development
+Requires Node 18+ (native fetch, WASM support).
 
-Install:
+Install deps (root + client handled by scripts when building, but do this once for dev):
 ```
 npm install
 npm install --prefix client
 ```
-Dev (backend + frontend):
+Run dev (Vite + API):
 ```
-npm run dev:all
+npm run dev
+```
+Open http://localhost:5173
+
+## Build
+Build static client (output: client/dist):
+```
+npm run build
+```
+Serve production (Express + built assets + API):
+```
+npm run serve
+```
+Then open http://localhost:3000
+
+## Tests
+Integration API smoke test:
+```
+npm test
+```
+Persistence (verifies data survives restart locally):
+```
+npm run persistence:test
 ```
 
-Build client & serve via Express:
-```
-npm run client:build
-npm start
-```
+## Vercel Deployment
+Two options:
+1. Static + Serverless (current repo includes `api/` serverless functions):
+   - Vercel runs `npm run build` (builds client) per `vercel.json`.
+   - Static front-end served from `client/dist`.
+   - API served via serverless functions under `/api/*` (state WILL NOT persist across cold starts because sql.js writes to ephemeral storage). Use this mode for demo only.
+2. Single Node / Express (persistent local file not supported on Vercel’s serverless): deploy elsewhere (e.g. Render, Railway, Docker VPS) for real persistence.
 
-## Test
-```
-node serverTest.js
-```
-(Uses ephemeral port and sql.js backed DB.)
+If you need persistence on Vercel, switch to an external DB (e.g. PlanetScale / Neon / Turso) and adapt `db.js`.
 
-## Data Persistence
-- data/app.sqlite (primary storage)
-- template.txt / dealers.json (legacy seed sources only if DB empty)
+## Data Persistence Notes
+- Local: durable across restarts (app.sqlite updated after each mutation).
+- Serverless: ephemeral; treat as volatile cache.
 
-## Notes
-- Rendering performs global replacement of the supported tokens.
-- Extend tokens by editing renderTemplateForDealer in index.js.
-- sql.js keeps DB fully in memory; writes are flushed to data/app.sqlite on each change.
+## Extend
+Add new placeholders: extend mapping in `sharedApi.js` (renderTemplateForDealer) and `index.js` (if using Express only).
 
 ## Future Enhancements
-- Search / filter dealers.
-- Version history for template edits.
-- Import/export dealer lists.
-- User-defined dynamic placeholders.
+- External DB adapter.
+- Import/export JSON snapshots.
+- Template version history.
+- Placeholder validation/highlighting.
+
+## License
+Private / internal tooling (no explicit license set).

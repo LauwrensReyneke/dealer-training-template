@@ -14,7 +14,19 @@ let SQL;
 let db;
 
 function locateFile(file){
-  return require.resolve('sql.js/dist/' + file);
+  try {
+    const path = require('path');
+    const fs = require('fs');
+    const candidates = [
+      path.join(__dirname,'node_modules','sql.js','dist',file),
+      path.join(process.cwd(),'node_modules','sql.js','dist',file)
+    ];
+    for (const c of candidates){ if (fs.existsSync(c)) { return c; } }
+    return require.resolve('sql.js/dist/' + file);
+  } catch (e){
+    console.error('[db] locateFile fallback for', file, e.message);
+    return 'sql-wasm.wasm';
+  }
 }
 
 function run(sql){ db.exec(sql); }
@@ -96,7 +108,11 @@ function updateDealer(id, fields){
 function deleteDealer(id){ prepare('DELETE FROM dealers WHERE id=?').run([id]); persist(); }
 
 const init = (async () => {
-  SQL = await initSqlJs({ locateFile });
+  try {
+    SQL = await initSqlJs({ locateFile });
+  } catch (e){
+    console.error('[db] initSqlJs failed', e); throw e;
+  }
   if (fs.existsSync(DB_PATH)) {
     try {
       const buf = fs.readFileSync(DB_PATH);

@@ -7,12 +7,13 @@ const storage = process.env.BLOB_READ_WRITE_TOKEN ? require('./blobDb') : requir
 const { seedTemplateIfMissing, getTemplate, saveTemplate, listDealers, getDealer, createDealer, updateDealer, deleteDealer, upsertDealers } = storage;
 
 const TEMPLATE_FILE_PATH = path.join(__dirname, 'template.txt');
+const DEALERS_JSON_PATH = path.join(__dirname, 'data', 'dealers.json');
 let dataInitialized = false;
 
 async function initData(){
   if (dataInitialized) return;
-  await db.init;
   await storage.init;
+  let def = 'Dealer: {{DEALER_NAME}}\nAddress: {{ADDRESS}}\nContact: {{NUMBER}}\nBrand: {{BRAND}}\n';
   try { if (fs.existsSync(TEMPLATE_FILE_PATH)) { const t = fs.readFileSync(TEMPLATE_FILE_PATH,'utf8'); if (t.trim()) def = t; } } catch {}
   try { await seedTemplateIfMissing(def); } catch {}
   dataInitialized = true;
@@ -53,6 +54,27 @@ function createApiRouter(){
 
   // Render
   app.get('/render', async (req,res)=>{ const id = sanitizeId(req.query.id); if (!id) return bad(res,'id_required'); try { const dealer = await getDealer(id); if (!dealer) return notFound(res,id); const template = await getTemplate(); const rendered = renderTemplateForDealer(template, dealer); res.json({ rendered, dealer }); } catch(e){ serverErr(res,e); } });
+
+  // Populate dealers (idempotent) - always reads data/dealers.json
+  const handlePopulate = async (_req,res)=>{
+    try {
+      let list = [];
+      if (fs.existsSync(DEALERS_JSON_PATH)) {
+        try {
+          const raw = fs.readFileSync(DEALERS_JSON_PATH,'utf8');
+            const parsed = JSON.parse(raw);
+            list = Array.isArray(parsed) ? parsed : (parsed.dealers||[]);
+        } catch (e){ return res.status(500).json({ error:'parse_error', message: e.message }); }
+      } else {
+        return res.status(404).json({ error:'dealers_file_missing' });
+      }
+      const inserted = upsertDealers(list);
+      const all = await listDealers();
+      res.json({ inserted, total: all.length });
+    } catch(e){ serverErr(res,e); }
+  };
+  app.post('/populate', handlePopulate);
+  app.get('/populate', handlePopulate);
 
   return app;
 }

@@ -129,9 +129,11 @@ function saveTemplate(key, content){
 }
 function deleteTemplate(key){
   if (!key) return false;
-  const res = prepare('DELETE FROM templates WHERE key=?').run([key]);
+  const existed = !!prepare('SELECT 1 AS x FROM templates WHERE key=?').getAsObject([key]).x;
+  if (!existed) return false;
+  prepare('DELETE FROM templates WHERE key=?').run([key]);
   persist();
-  return !!(res && res.changes);
+  return true;
 }
 function renameTemplate(oldKey, newKey){
   if (!oldKey || !newKey) return false; if (oldKey === newKey) return true;

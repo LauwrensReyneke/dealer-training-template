@@ -2,8 +2,6 @@
   "buildCommand": "npm run build",
   "outputDirectory": "client/dist",
   "framework": "vite",
-  "cleanUrls": true,
-  "trailingSlash": false,
   "functions": {
     "api/**/*.js": {
       "includeFiles": "node_modules/sql.js/dist/sql-wasm.wasm"

@@ -21,8 +21,4 @@ function build(){
   return inst;
 }
 
-module.exports = async function handler(req, res){
-  try { await initData(); } catch (e){ console.error('[api fn] initData error', e); }
-  if (!app) app = build();
-  return app(req, res);
-};
+module.exports = build;

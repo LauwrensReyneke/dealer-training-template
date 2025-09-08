@@ -71,7 +71,6 @@ const copyingId = ref('');
 const lastCopiedId = ref('');
 const statusMsg = ref('');
 let clearTimer;
-
 function setStatus(msg){
   statusMsg.value = msg;
   clearTimeout(clearTimer);
@@ -81,8 +80,10 @@ function setStatus(msg){
 async function load(){
   loading.value=true;
   try { const r = await fetch('/api/dealers'); dealers.value = (await r.json()).dealers || []; }
-  finally { loading.value=false; }
-}
+  try {
+    const r = await fetch('/api/dealers');
+    dealers.value = (await r.json()).dealers || [];
+  } finally { loading.value=false; }
 function newDealer(){ Object.assign(form,{ id:'', name:'', address:'', number:'', brand:'' }); dialog.value.showModal(); }
 function editDealer(d){ Object.assign(form,d); dialog.value.showModal(); }
 function close(){ dialog.value.close(); }
@@ -102,28 +103,11 @@ async function removeDealer(d){
   await load();
 }
 async function copyTemplate(d){
-  copyingId.value = d.id;
-  try {
+    setStatus(`Copied template for ${d.name}`);
+  } catch (e){
+    setStatus(`Copy failed for ${d.name}`);
     const r = await fetch(`/api/dealers/${d.id}/render`);
     if (!r.ok) throw new Error('render failed');
     const j = await r.json();
     const text = j.rendered || '';
-    try { await navigator.clipboard.writeText(text); } catch {
-      // fallback
-      const ta = document.createElement('textarea');
-      ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
-    }
-    lastCopiedId.value = d.id;
-    setStatus(`Copied template for ${d.name}`);
-  } catch (e){
-    setStatus(`Copy failed for ${d.name}`);
-  } finally {
-    copyingId.value='';
-  }
-}
-
-onMounted(load);
-</script>
-<style scoped>
-dialog::backdrop { background: rgba(0,0,0,0.35); }
-</style>
+    if (!text) throw new Error('empty');

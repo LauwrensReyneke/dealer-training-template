@@ -3,7 +3,10 @@ const path = require('path');
 const initSqlJs = require('sql.js');
 
 // Minimal single-file embedded DB (sql.js in-memory with file persistence)
-const DATA_DIR = path.join(__dirname, 'data');
+// In Vercel serverless functions the filesystem is read-only except /tmp.
+// Use /tmp for persistence there so warm invocations can re-use the file.
+const IS_VERCEL = !!process.env.VERCEL;
+const DATA_DIR = IS_VERCEL ? '/tmp' : path.join(__dirname, 'data');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 const DB_PATH = path.join(DATA_DIR, 'app.sqlite');
 
@@ -21,7 +24,12 @@ function persist(){
   try {
     const data = db.export();
     fs.writeFileSync(DB_PATH, Buffer.from(data));
-  } catch {/* ignore */}
+  } catch (e){
+    if (!IS_VERCEL) {
+      // Log only outside Vercel to keep functions lean
+      console.warn('[db] persist failed', e.message);
+    }
+  }
 }
 
 function initSchema(){
@@ -90,8 +98,12 @@ function deleteDealer(id){ prepare('DELETE FROM dealers WHERE id=?').run([id]); 
 const init = (async () => {
   SQL = await initSqlJs({ locateFile });
   if (fs.existsSync(DB_PATH)) {
-    const buf = fs.readFileSync(DB_PATH);
-    db = new SQL.Database(buf);
+    try {
+      const buf = fs.readFileSync(DB_PATH);
+      db = new SQL.Database(buf);
+    } catch (e) {
+      db = new SQL.Database();
+    }
   } else {
     db = new SQL.Database();
   }

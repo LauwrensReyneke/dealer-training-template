@@ -12,7 +12,7 @@
         <span class="text-[11px] px-2 py-1 rounded bg-gray-100 text-gray-600" v-if="currentKey">{{ currentKey }}</span>
         <button @click="handleNew" class="px-2 py-1 text-xs rounded bg-blue-600 text-white">New</button>
         <button @click="openModal('rename')" :disabled="!templates.length" class="px-2 py-1 text-xs rounded bg-blue-600 text-white disabled:opacity-40">Rename</button>
-        <button @click="removeCurrent" :disabled="currentKey==='main' || deleting" class="px-2 py-1 text-xs rounded bg-red-600 text-white disabled:opacity-40">Delete</button>
+        <button @click="removeCurrent" :disabled="!currentKey || deleting" class="px-2 py-1 text-xs rounded bg-red-600 text-white disabled:opacity-40">Delete</button>
       </div>
     </div>
 
@@ -23,13 +23,14 @@
       </div>
     </section>
 
-    <div>
+    <div v-if="!currentKey" class="p-4 text-xs text-gray-600 bg-yellow-50 border rounded">No templates exist yet. Create one to start.</div>
+    <div v-else>
       <textarea ref="templateArea" v-model="localTemplate" class="w-full h-96 p-3 font-mono text-xs border rounded resize-none focus:outline-none focus:ring"></textarea>
     </div>
 
     <div class="flex gap-2 items-center flex-wrap">
-      <button @click="save" :disabled="saving || localTemplate===original" class="px-4 py-2 rounded bg-blue-600 text-white disabled:opacity-40">Save</button>
-      <button @click="reset" :disabled="localTemplate===original" class="px-4 py-2 rounded bg-gray-200">Reset</button>
+      <button @click="save" :disabled="!currentKey || saving || localTemplate===original" class="px-4 py-2 rounded bg-blue-600 text-white disabled:opacity-40">Save</button>
+      <button @click="reset" :disabled="!currentKey || localTemplate===original" class="px-4 py-2 rounded bg-gray-200">Reset</button>
       <span class="text-xs text-gray-500" v-if="updatedAt">Updated: {{ updatedAtDisplay }}</span>
       <span class="text-sm" v-if="status">{{ status }}</span>
     </div>
@@ -139,7 +140,7 @@ async function confirmModal(){
 }
 
 async function loadTemplateContent(){
-  if (!currentKey.value) return;
+  if (!currentKey.value){ localTemplate.value=''; original.value=''; updatedAt.value=''; return; }
   setStatus('Loading...',800);
   try {
     const tpl = await getTemplate(currentKey.value);
@@ -156,13 +157,14 @@ async function save(){
 }
 function reset(){ localTemplate.value = original.value; }
 async function removeCurrent(){
-  if (currentKey.value==='main') return;
+  if (!currentKey.value) return;
   if (localTemplate.value !== original.value){ const proceed = confirm('Discard unsaved changes and delete?'); if(!proceed) return; }
   if (!confirm(`Delete template "${currentKey.value}"?`)) return;
   deleting.value=true; setStatus('Deleting...');
   try {
     await deleteTemplate(currentKey.value);
     await refreshTemplates();
+    if (!selectedTemplateKey.value && templates.value.length){ await setSelectedTemplateKey(templates.value[0].key); }
     await loadTemplateContent();
     setStatus('Deleted');
   } catch { setStatus('Delete failed'); }
@@ -177,7 +179,7 @@ const unregisterGuard = registerBeforeTemplateChange(async ()=>{
   return true;
 });
 
-watch(currentKey, async (n, o)=>{ if (n && n !== o) await loadTemplateContent(); });
+watch(currentKey, async (n, o)=>{ if (n !== o) await loadTemplateContent(); });
 
 async function handleNew(){ openModal('new'); }
 

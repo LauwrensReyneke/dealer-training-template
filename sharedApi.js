@@ -99,11 +99,22 @@ function createApiRouter() {
     const { id } = req.params;
     try {
       const dealer = getDealer(id);
-      if (!dealer) return res.status(404).json({ error:'not found' });
+      if (!dealer || !dealer.id) {
+        console.warn('[render] dealer not found id=', id);
+        return res.status(404).json({ error:'dealer not found', id });
+      }
       const template = getTemplate();
       const rendered = renderTemplateForDealer(template, dealer);
       res.json({ rendered, dealer });
-    } catch { res.status(500).json({ error:'Failed to render' }); }
+    } catch (e) {
+      console.error('[render] error', e);
+      res.status(500).json({ error:'Failed to render' }); }
+  });
+
+  // Debug endpoint (not for production) to inspect current dealers
+  app.get('/debug/dealers', (req,res)=>{
+    try { res.json({ dealers: listDealers() }); }
+    catch { res.status(500).json({ error:'debug list failed' }); }
   });
 
   return app;

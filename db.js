@@ -92,11 +92,17 @@ function listDealers(){
   const stmt = prepare('SELECT id,name,address,number,brand FROM dealers ORDER BY name COLLATE NOCASE');
   const out = []; while (stmt.step()) out.push(stmt.getAsObject()); return out;
 }
-function getDealer(id){ return prepare('SELECT id,name,address,number,brand FROM dealers WHERE id=?').getAsObject([id]) || null; }
+function getDealer(id){
+  const row = prepare('SELECT id,name,address,number,brand FROM dealers WHERE id=?').getAsObject([id]);
+  if (!row || !row.id) return null;
+  return row;
+}
 function createDealer({ id, name, address='', number='', brand='' }){
   prepare('INSERT INTO dealers (id,name,address,number,brand) VALUES (?,?,?,?,?)').run([id,name,address,number,brand]);
   persist();
-  return getDealer(id);
+  const d = getDealer(id);
+  if (!d) console.warn('[db] createDealer failed to retrieve just-inserted id', id);
+  return d;
 }
 function updateDealer(id, fields){
   const current = getDealer(id); if (!current || !current.id) return null;

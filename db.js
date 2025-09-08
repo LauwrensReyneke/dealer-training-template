@@ -128,10 +128,10 @@ function saveTemplate(key, content){
   persist();
 }
 function deleteTemplate(key){
-  if (!key || key === 'main') return false; // protect main like API layer expects
-  prepare('DELETE FROM templates WHERE key=?').run([key]);
+  if (!key) return false;
+  const res = prepare('DELETE FROM templates WHERE key=?').run([key]);
   persist();
-  return true;
+  return !!(res && res.changes);
 }
 function renameTemplate(oldKey, newKey){
   if (!oldKey || !newKey) return false; if (oldKey === newKey) return true;

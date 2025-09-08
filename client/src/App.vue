@@ -11,6 +11,7 @@
       <div class="ml-auto flex items-center gap-2" v-if="templates.length">
         <label class="text-[11px] font-medium text-gray-600">Template
           <select :value="selectedTemplateComputed" @change="onTemplateChange($event)" class="mt-0.5 border rounded px-2 py-1 text-xs min-w-[8rem]">
+            <option value="">-- none --</option>
             <option v-for="t in templates" :key="t.key" :value="t.key">{{ t.key }}</option>
           </select>
         </label>

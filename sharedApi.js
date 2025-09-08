@@ -4,7 +4,7 @@ const path = require('path');
 
 // Dynamic storage selection: blobDb (blob persistence) > local embedded db
 const storage = process.env.BLOB_READ_WRITE_TOKEN ? require('./blobDb') : require('./db');
-const { seedTemplateIfMissing, getTemplate, saveTemplate, listDealers, getDealer, createDealer, updateDealer, deleteDealer, upsertDealers } = storage;
+const { seedTemplateIfMissing, getTemplate, saveTemplate, deleteTemplate, listTemplates, listDealers, getDealer, createDealer, updateDealer, deleteDealer, upsertDealers, renameTemplate } = storage;
 
 const TEMPLATE_FILE_PATH = path.join(__dirname, 'template.txt');
 const DEALERS_JSON_PATH = path.join(__dirname, 'data', 'dealers.json');
@@ -32,18 +32,19 @@ function createApiRouter(){
 
   const zeroWidthRE = /[\u200B-\u200D\uFEFF]/g;
   const sanitizeId = id => (typeof id==='string'? id.replace(zeroWidthRE,'').trim(): '');
+  const sanitizeTemplateKey = key => (typeof key==='string'? key.replace(/[^a-zA-Z0-9._-]+/g,'').slice(0,48): '');
   const notFound = (res,id)=> res.status(404).json({ error:'not_found', id });
   const bad = (res,err)=> res.status(400).json({ error: err });
   const serverErr = (res,e)=> res.status(500).json({ error:'server_error', message: e.message });
 
-  // Template
-  app.get('/template', async (_req,res)=>{ try { res.json({ template: await getTemplate() }); } catch(e){ serverErr(res,e); } });
-  app.put('/template', async (req,res)=>{
-    const { template } = req.body||{}; if (typeof template !== 'string') return bad(res,'invalid_template');
-    try { await saveTemplate(template); res.json({ ok:true }); } catch(e){ serverErr(res,e); }
-  });
+  // Templates (multi)
+  app.get('/templates', async (_req,res)=>{ try { const list = (await listTemplates()).map(r=>({ key: r.key, updated_at: r.updated_at })); res.json({ templates: list }); } catch(e){ serverErr(res,e); } });
+  app.get('/template', async (req,res)=>{ try { const key = sanitizeTemplateKey(req.query.key)||'main'; const template = await getTemplate(key); res.json({ key, template }); } catch(e){ serverErr(res,e); } });
+  app.put('/template', async (req,res)=>{ const { template, key } = req.body||{}; if (typeof template !== 'string') return bad(res,'invalid_template'); const k = sanitizeTemplateKey(key)||'main'; try { await saveTemplate(k, template); res.json({ ok:true, key:k }); } catch(e){ serverErr(res,e); } });
+  app.delete('/template', async (req,res)=>{ const key = sanitizeTemplateKey(req.query.key); if (!key) return bad(res,'key_required'); if (key==='main') return bad(res,'cannot_delete_main'); try { const ok = await deleteTemplate(key); if (!ok) return notFound(res,key); res.json({ ok:true }); } catch(e){ serverErr(res,e); } });
+  app.post('/template/rename', async (req,res)=>{ const { oldKey, newKey } = req.body||{}; const o = sanitizeTemplateKey(oldKey); const n = sanitizeTemplateKey(newKey); if (!o || !n) return bad(res,'keys_required'); if (n === 'main' && o !== 'main') return bad(res,'reserved_target'); try { const ok = await renameTemplate(o,n); if (!ok) return res.status(409).json({ error:'rename_failed' }); res.json({ ok:true, key:n }); } catch(e){ serverErr(res,e); } });
 
-  // Dealers list
+  // Dealers
   app.get('/dealers', async (_req,res)=>{ try { res.json({ dealers: await listDealers() }); } catch(e){ serverErr(res,e); } });
 
   // Dealer CRUD (query id)
@@ -53,7 +54,7 @@ function createApiRouter(){
   app.delete('/dealer', async (req,res)=>{ const id = sanitizeId(req.query.id); if (!id) return bad(res,'id_required'); try { const existing = await getDealer(id); if (!existing) return notFound(res,id); await deleteDealer(id); res.json({ ok:true }); } catch(e){ serverErr(res,e); } });
 
   // Render
-  app.get('/render', async (req,res)=>{ const id = sanitizeId(req.query.id); if (!id) return bad(res,'id_required'); try { const dealer = await getDealer(id); if (!dealer) return notFound(res,id); const template = await getTemplate(); const rendered = renderTemplateForDealer(template, dealer); res.json({ rendered, dealer }); } catch(e){ serverErr(res,e); } });
+  app.get('/render', async (req,res)=>{ const id = sanitizeId(req.query.id); if (!id) return bad(res,'id_required'); try { const dealer = await getDealer(id); if (!dealer) return notFound(res,id); const tplKey = sanitizeTemplateKey(req.query.template)||'main'; const template = await getTemplate(tplKey); const rendered = renderTemplateForDealer(template, dealer); res.json({ rendered, dealer, templateKey: tplKey }); } catch(e){ serverErr(res,e); } });
 
   // Populate dealers (idempotent) - always reads data/dealers.json
   const handlePopulate = async (_req,res)=>{

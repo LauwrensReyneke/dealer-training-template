@@ -91,13 +91,39 @@ async function seedTemplateIfMissing(defaultContent){
     exportAndScheduleUpload();
   }
 }
-async function getTemplate(){
-  const r = prepare('SELECT content FROM templates WHERE key=?').getAsObject(['main']);
-  return r.content || '';
+// Multi-template helpers
+function listTemplates(){
+  const stmt = prepare('SELECT key, updated_at FROM templates ORDER BY key COLLATE NOCASE');
+  const arr = []; while (stmt.step()) arr.push(stmt.getAsObject()); return arr;
 }
-async function saveTemplate(content){
-  prepare(`INSERT INTO templates (key, content) VALUES ('main', ?) ON CONFLICT(key) DO UPDATE SET content=excluded.content, updated_at=CURRENT_TIMESTAMP`).run([content]);
+async function getTemplate(key='main'){
+  const r = prepare('SELECT content FROM templates WHERE key=?').getAsObject([key]);
+  if (r.content) return r.content;
+  if (key === 'main') {
+    const first = prepare('SELECT content FROM templates ORDER BY key COLLATE NOCASE LIMIT 1').getAsObject();
+    return first.content || '';
+  }
+  return '';
+}
+async function saveTemplate(key, content){
+  if (content === undefined) { content = key; key = 'main'; }
+  if (typeof key !== 'string' || !key.trim()) key = 'main';
+  prepare(`INSERT INTO templates (key, content) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET content=excluded.content, updated_at=CURRENT_TIMESTAMP`).run([key, content]);
   exportAndScheduleUpload();
+}
+function renameTemplate(oldKey, newKey){
+  if (!oldKey || !newKey) return false; if (oldKey === newKey) return true;
+  const hasOld = prepare('SELECT 1 AS x FROM templates WHERE key=?').getAsObject([oldKey]).x; if (!hasOld) return false;
+  const exists = prepare('SELECT 1 AS x FROM templates WHERE key=?').getAsObject([newKey]).x; if (exists) return false;
+  prepare('UPDATE templates SET key=? WHERE key=?').run([newKey, oldKey]);
+  exportAndScheduleUpload();
+  return true;
+}
+async function deleteTemplate(key){
+  if (!key || key === 'main') return false; // protect main
+  prepare('DELETE FROM templates WHERE key=?').run([key]);
+  exportAndScheduleUpload();
+  return true;
 }
 async function listDealers(){
   const stmt = prepare('SELECT id,name,address,number,brand FROM dealers ORDER BY name COLLATE NOCASE');
@@ -165,8 +191,11 @@ const init = (async () => {
 module.exports = {
   init,
   seedTemplateIfMissing,
+  listTemplates,
   getTemplate,
   saveTemplate,
+  deleteTemplate,
+  renameTemplate,
   listDealers,
   getDealer,
   createDealer,

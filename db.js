@@ -107,14 +107,38 @@ function upsertDealers(list){
   return inserted;
 }
 
-// Template API
-function getTemplate(){
-  const r = prepare('SELECT content FROM templates WHERE key=?').getAsObject(['main']);
-  return r.content || '';
+// Template API (multi-template)
+function listTemplates(){
+  const stmt = prepare('SELECT key, updated_at FROM templates ORDER BY datetime(updated_at) DESC, key COLLATE NOCASE');
+  const out = []; while (stmt.step()) out.push(stmt.getAsObject()); return out;
 }
-function saveTemplate(content){
-  prepare(`INSERT INTO templates (key, content) VALUES ('main', ?) ON CONFLICT(key) DO UPDATE SET content=excluded.content, updated_at=CURRENT_TIMESTAMP`).run([content]);
+function getTemplate(key='main'){
+  const r = prepare('SELECT content FROM templates WHERE key=?').getAsObject([key]);
+  if (r.content) return r.content;
+  if (key === 'main') {
+    const first = prepare('SELECT content FROM templates ORDER BY key COLLATE NOCASE LIMIT 1').getAsObject();
+    return first.content || '';
+  }
+  return '';
+}
+function saveTemplate(key, content){
+  if (content === undefined) { content = key; key = 'main'; }
+  if (typeof key !== 'string' || !key.trim()) key = 'main';
+  prepare(`INSERT INTO templates (key, content) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET content=excluded.content, updated_at=CURRENT_TIMESTAMP`).run([key, content]);
   persist();
+}
+function deleteTemplate(key){
+  if (!key || key === 'main') return false; // protect main like API layer expects
+  prepare('DELETE FROM templates WHERE key=?').run([key]);
+  persist();
+  return true;
+}
+function renameTemplate(oldKey, newKey){
+  if (!oldKey || !newKey) return false; if (oldKey === newKey) return true;
+  const exists = prepare('SELECT 1 AS x FROM templates WHERE key=?').getAsObject([newKey]).x; if (exists) return false;
+  const changed = prepare('UPDATE templates SET key=? WHERE key=?').run([newKey, oldKey]);
+  if (changed && changed.changes) persist();
+  return !!(changed && changed.changes);
 }
 
 // Dealer API
@@ -124,18 +148,15 @@ function listDealers(){
 }
 function getDealer(id){
   const row = prepare('SELECT id,name,address,number,brand FROM dealers WHERE id=?').getAsObject([id]);
-  if (!row || !row.id) return null;
-  return row;
+  if (!row || !row.id) return null; return row;
 }
 function createDealer({ id, name, address='', number='', brand='' }){
   prepare('INSERT INTO dealers (id,name,address,number,brand) VALUES (?,?,?,?,?)').run([id,name,address,number,brand]);
   persist();
-  const d = getDealer(id);
-  if (!d) console.warn('[db] createDealer failed to retrieve just-inserted id', id);
-  return d;
+  return getDealer(id);
 }
 function updateDealer(id, fields){
-  const current = getDealer(id); if (!current || !current.id) return null;
+  const current = getDealer(id); if (!current) return null;
   const next = { ...current, ...fields };
   prepare('UPDATE dealers SET name=?, address=?, number=?, brand=?, updated_at=CURRENT_TIMESTAMP WHERE id=?').run([next.name,next.address,next.number,next.brand,id]);
   persist();
@@ -167,8 +188,11 @@ module.exports = {
   seedTemplateIfMissing,
   migrateDealersFromJson,
   upsertDealers,
+  listTemplates,
   getTemplate,
   saveTemplate,
+  deleteTemplate,
+  renameTemplate,
   listDealers,
   getDealer,
   createDealer,

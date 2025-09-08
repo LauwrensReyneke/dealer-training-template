@@ -17,12 +17,23 @@ async function request(method, path, body){
   return data;
 }
 
-export async function getTemplate(){
-  const { template = '' } = await request('GET','/template');
+export async function listTemplates(){
+  const { templates = [] } = await request('GET','/templates');
+  return templates;
+}
+export async function getTemplate(key='main'){
+  const q = key && key !== 'main' ? `?key=${encodeURIComponent(key)}` : '';
+  const { template = '' } = await request('GET', `/template${q}`);
   return template;
 }
-export function saveTemplate(template){
-  return request('PUT','/template',{ template });
+export function saveTemplate(key, template){
+  if (template === undefined) { // backward compat saveTemplate(content)
+    return request('PUT','/template',{ template: key });
+  }
+  return request('PUT','/template',{ key, template });
+}
+export function deleteTemplate(key){
+  return request('DELETE', `/template?key=${encodeURIComponent(key)}`);
 }
 
 export async function listDealers(){
@@ -35,11 +46,15 @@ export function createDealer(payload){
 export function updateDealer(id, payload){
   return request('PUT', `/dealer?id=${encodeURIComponent(id)}`, payload);
 }
+export function renameTemplate(oldKey, newKey){
+  return request('POST','/template/rename',{ oldKey, newKey });
+}
 export function deleteDealer(id){
   return request('DELETE', `/dealer?id=${encodeURIComponent(id)}`);
 }
-export async function renderDealer(id){
-  const { rendered = '' } = await request('GET', `/render?id=${encodeURIComponent(id)}`);
+export async function renderDealer(id, templateKey='main'){
+  const t = templateKey && templateKey !== 'main' ? `&template=${encodeURIComponent(templateKey)}` : '';
+  const { rendered = '' } = await request('GET', `/render?id=${encodeURIComponent(id)}${t}`);
   return rendered;
 }
 
@@ -54,4 +69,3 @@ export async function copyText(text){
     } catch { return false; }
   }
 }
-

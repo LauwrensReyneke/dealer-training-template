@@ -6,25 +6,41 @@ const initSqlJs = require('sql.js');
 // In Vercel serverless functions the filesystem is read-only except /tmp.
 // Use /tmp for persistence there so warm invocations can re-use the file.
 const IS_VERCEL = !!process.env.VERCEL;
-const DATA_DIR = IS_VERCEL ? '/tmp' : path.join(__dirname, 'data');
-if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+let DATA_DIR = IS_VERCEL ? '/tmp' : path.join(__dirname, 'data');
+// Ensure data dir exists; if creation fails (read-only FS) fall back to /tmp
+try {
+  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+} catch (e) {
+  // fallback to /tmp when we cannot write inside the project (serverless readonly)
+  try {
+    DATA_DIR = '/tmp';
+    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+  } catch (_) {
+    // last resort: continue without persistence (DB_PATH may be unwritable)
+    DATA_DIR = path.join(__dirname, 'data');
+  }
+}
 const DB_PATH = path.join(DATA_DIR, 'app.sqlite');
 
 let SQL;
 let db;
 
 function locateFile(file){
+  // prefer Node resolver used in blobDb to ensure wasm is found in deployed bundles
   try {
-    const path = require('path');
-    const fs = require('fs');
-    const candidates = [
-      path.join(__dirname,'node_modules','sql.js','dist',file),
-      path.join(process.cwd(),'node_modules','sql.js','dist',file)
-    ];
-    for (const c of candidates){ if (fs.existsSync(c)) { return c; } }
     return require.resolve('sql.js/dist/' + file);
-  } catch (e){
-    console.error('[db] locateFile fallback for', file, e.message);
+  } catch (e) {
+    // fallback to previous heuristic
+    try {
+      const path = require('path');
+      const fs = require('fs');
+      const candidates = [
+        path.join(__dirname,'node_modules','sql.js','dist',file),
+        path.join(process.cwd(),'node_modules','sql.js','dist',file)
+      ];
+      for (const c of candidates){ if (fs.existsSync(c)) { return c; } }
+    } catch (_){}
+    console.error('[db] locateFile fallback for', file, e && e.message);
     return 'sql-wasm.wasm';
   }
 }

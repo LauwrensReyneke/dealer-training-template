@@ -45,9 +45,28 @@ function persist(){
 }
 
 function initSchema(){
-  run(`CREATE TABLE IF NOT EXISTS templates (\n  key TEXT PRIMARY KEY,\n  content TEXT NOT NULL,\n  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP\n);`);
-  run(`CREATE TABLE IF NOT EXISTS dealers (\n  id TEXT PRIMARY KEY,\n  name TEXT NOT NULL,\n  address TEXT DEFAULT '',\n  number TEXT DEFAULT '',\n  brand TEXT DEFAULT '',\n  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,\n  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP\n);`);
+  run(`CREATE TABLE IF NOT EXISTS templates (
+  key TEXT PRIMARY KEY,
+  content TEXT NOT NULL,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);`);
+  run(`CREATE TABLE IF NOT EXISTS dealers (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  address TEXT DEFAULT '',
+  number TEXT DEFAULT '',
+  brand TEXT DEFAULT '',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);`);
   try { run(`CREATE UNIQUE INDEX IF NOT EXISTS dealers_name_unique ON dealers (lower(name));`); } catch(_) {}
+
+  // vehicle_prices: per-brand stored content (could be simple text or formatted HTML/plain text)
+  run(`CREATE TABLE IF NOT EXISTS vehicle_prices (
+    brand TEXT PRIMARY KEY,
+    content TEXT DEFAULT '',
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );`);
 }
 
 // Seed template if missing
@@ -166,6 +185,42 @@ function updateDealer(id, fields){
 }
 function deleteDealer(id){ prepare('DELETE FROM dealers WHERE id=?').run([id]); persist(); }
 
+// Vehicle prices API (per brand)
+function listPrices(){
+  const stmt = prepare('SELECT brand, updated_at FROM vehicle_prices ORDER BY brand COLLATE NOCASE');
+  const out = []; while (stmt.step()) out.push(stmt.getAsObject()); return out;
+}
+function getPrice(brand){
+  if (!brand) return null;
+  // case-insensitive lookup: return stored brand casing if exists
+  const row = prepare('SELECT brand, content, updated_at FROM vehicle_prices WHERE lower(brand)=lower(?) LIMIT 1').getAsObject([brand.trim()]);
+  if (!row || row.content === undefined) return null; return { brand: row.brand, content: row.content, updated_at: row.updated_at };
+}
+function savePrice(brand, content){
+  if (!brand) return false;
+  const b = String(brand).trim();
+  // find existing (case-insensitive)
+  const existing = prepare('SELECT brand FROM vehicle_prices WHERE lower(brand)=lower(?) LIMIT 1').getAsObject([b]);
+  if (existing && existing.brand) {
+    // update existing row to avoid duplicate brands with different casing
+    prepare('UPDATE vehicle_prices SET content=?, updated_at=CURRENT_TIMESTAMP WHERE brand=?').run([content || '', existing.brand]);
+  } else {
+    prepare('INSERT INTO vehicle_prices (brand, content) VALUES (?, ?)').run([b, content || '']);
+  }
+  persist();
+  return true;
+}
+function deletePrice(brand){
+  if (!brand) return false;
+  const b = String(brand).trim();
+  // delete case-insensitive
+  const existing = prepare('SELECT brand FROM vehicle_prices WHERE lower(brand)=lower(?) LIMIT 1').getAsObject([b]);
+  if (!existing || !existing.brand) return false;
+  prepare('DELETE FROM vehicle_prices WHERE brand=?').run([existing.brand]);
+  persist();
+  return true;
+}
+
 const init = (async () => {
   try {
     SQL = await initSqlJs({ locateFile });
@@ -200,5 +255,9 @@ module.exports = {
   createDealer,
   updateDealer,
   deleteDealer,
-  DB_PATH
+  DB_PATH,
+  listPrices,
+  getPrice,
+  savePrice,
+  deletePrice
 };

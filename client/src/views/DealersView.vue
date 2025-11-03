@@ -71,6 +71,7 @@
 <script setup>
 import { reactive, ref, onMounted } from 'vue';
 import { listDealers, createDealer, updateDealer, deleteDealer, renderDealer, copyText } from '../api';
+import { selectedTemplateKey } from '../stores/templatesStore';
 
 const dealers = ref([]);
 const loading = ref(false);
@@ -121,7 +122,7 @@ async function removeDealer(d){
 async function copyTemplate(d){
   copyingId.value = d.id;
   try {
-    const rendered = await renderDealer(d.id);
+    const rendered = await renderDealer(d.id, selectedTemplateKey.value || undefined);
     if (!rendered) throw new Error('empty');
     const ok = await copyText(rendered);
     if (!ok) throw new Error('clipboard');

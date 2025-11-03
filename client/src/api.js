@@ -21,8 +21,8 @@ export async function listTemplates(){
   const { templates = [] } = await request('GET','/templates');
   return templates;
 }
-export async function getTemplate(key='main'){
-  const q = key && key !== 'main' ? `?key=${encodeURIComponent(key)}` : '';
+export async function getTemplate(key){
+  const q = key ? `?key=${encodeURIComponent(key)}` : '';
   const { template = '' } = await request('GET', `/template${q}`);
   return template;
 }
@@ -52,8 +52,8 @@ export function renameTemplate(oldKey, newKey){
 export function deleteDealer(id){
   return request('DELETE', `/dealer?id=${encodeURIComponent(id)}`);
 }
-export async function renderDealer(id, templateKey='main'){
-  const t = templateKey && templateKey !== 'main' ? `&template=${encodeURIComponent(templateKey)}` : '';
+export async function renderDealer(id, templateKey){
+  const t = templateKey ? `&template=${encodeURIComponent(templateKey)}` : '';
   const { rendered = '' } = await request('GET', `/render?id=${encodeURIComponent(id)}${t}`);
   return rendered;
 }
@@ -68,4 +68,20 @@ export async function copyText(text){
       return true;
     } catch { return false; }
   }
+}
+
+// Prices API
+export async function listPrices(){
+  const { prices = [] } = await request('GET','/prices');
+  return prices;
+}
+export async function getPrice(brand){
+  const { content = '' } = await request('GET', `/price?brand=${encodeURIComponent(brand)}`);
+  return content;
+}
+export async function savePrice(brand, content){
+  return request('PUT','/price', { brand, content });
+}
+export async function deletePrice(brand){
+  return request('DELETE', `/price?brand=${encodeURIComponent(brand)}`);
 }

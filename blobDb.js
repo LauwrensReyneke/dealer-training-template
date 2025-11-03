@@ -82,6 +82,9 @@ function initSchema(){
   run(`CREATE TABLE IF NOT EXISTS templates (\n  key TEXT PRIMARY KEY,\n  content TEXT NOT NULL,\n  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP\n);`);
   run(`CREATE TABLE IF NOT EXISTS dealers (\n  id TEXT PRIMARY KEY,\n  name TEXT NOT NULL,\n  address TEXT DEFAULT '',\n  number TEXT DEFAULT '',\n  brand TEXT DEFAULT '',\n  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,\n  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP\n);`);
   try { run(`CREATE UNIQUE INDEX IF NOT EXISTS dealers_name_unique ON dealers (lower(name));`); } catch(_) {}
+
+  // vehicle_prices table
+  run(`CREATE TABLE IF NOT EXISTS vehicle_prices (\n    brand TEXT PRIMARY KEY,\n    content TEXT DEFAULT '',\n    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP\n  );`);
 }
 
 async function seedTemplateIfMissing(defaultContent){
@@ -120,7 +123,7 @@ function renameTemplate(oldKey, newKey){
   return true;
 }
 async function deleteTemplate(key){
-  if (!key || key === 'main') return false; // protect main
+  if (!key) return false;
   prepare('DELETE FROM templates WHERE key=?').run([key]);
   exportAndScheduleUpload();
   return true;
@@ -150,33 +153,36 @@ async function deleteDealer(id){
   exportAndScheduleUpload();
 }
 
-function upsertDealers(list){
-  if (!Array.isArray(list) || !list.length) return 0;
-  const findByName = prepare('SELECT id FROM dealers WHERE lower(name)=lower(?) LIMIT 1');
-  const insertStmt = prepare('INSERT INTO dealers (id,name,address,number,brand) VALUES (?,?,?,?,?)');
-  let inserted = 0;
-  run('BEGIN');
-  for (const d of list){
-    if (!d) continue;
-    const name = (d.name || d["Dealer Name"] || d.dealerName || '').trim();
-    if (!name) continue;
-    const exists = findByName.getAsObject([name]);
-    if (exists && exists.id) continue;
-    const address = (d.address || d.Address || '').trim();
-    const number = (d.number || d.Number || '').trim();
-    const brand = (d.brand || d.Brand || '').trim();
-    const baseSlug = name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,48) || (Date.now().toString(36));
-    let id = baseSlug;
-    let attempt = 0;
-    while (prepare('SELECT 1 AS x FROM dealers WHERE id=?').getAsObject([id]).x && attempt < 3){
-      id = baseSlug + '-' + Math.random().toString(36).slice(2,6);
-      attempt++;
-    }
-    try { insertStmt.run([id,name,address,number,brand]); inserted++; } catch(_){ }
+// Vehicle prices API
+function listPrices(){
+  const stmt = prepare('SELECT brand, updated_at FROM vehicle_prices ORDER BY brand COLLATE NOCASE');
+  const out = []; while (stmt.step()) out.push(stmt.getAsObject()); return out;
+}
+async function getPrice(brand){
+  if (!brand) return null;
+  const row = prepare('SELECT brand, content, updated_at FROM vehicle_prices WHERE lower(brand)=lower(?) LIMIT 1').getAsObject([String(brand).trim()]);
+  if (!row || row.content === undefined) return null; return { brand: row.brand, content: row.content, updated_at: row.updated_at };
+}
+async function savePrice(brand, content){
+  if (!brand) return false;
+  const b = String(brand).trim();
+  const existing = prepare('SELECT brand FROM vehicle_prices WHERE lower(brand)=lower(?) LIMIT 1').getAsObject([b]);
+  if (existing && existing.brand) {
+    prepare('UPDATE vehicle_prices SET content=?, updated_at=CURRENT_TIMESTAMP WHERE brand=?').run([content || '', existing.brand]);
+  } else {
+    prepare('INSERT INTO vehicle_prices (brand, content) VALUES (?, ?)').run([b, content || '']);
   }
-  run('COMMIT');
-  if (inserted) exportAndScheduleUpload();
-  return inserted;
+  exportAndScheduleUpload();
+  return true;
+}
+async function deletePrice(brand){
+  if (!brand) return false;
+  const b = String(brand).trim();
+  const existing = prepare('SELECT brand FROM vehicle_prices WHERE lower(brand)=lower(?) LIMIT 1').getAsObject([b]);
+  if (!existing || !existing.brand) return false;
+  prepare('DELETE FROM vehicle_prices WHERE brand=?').run([existing.brand]);
+  exportAndScheduleUpload();
+  return true;
 }
 
 const init = (async () => {
@@ -202,5 +208,10 @@ module.exports = {
   updateDealer,
   deleteDealer,
   flushDirty,
-  upsertDealers
+  upsertDealers,
+  // pricing
+  listPrices,
+  getPrice,
+  savePrice,
+  deletePrice
 };

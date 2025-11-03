@@ -4,7 +4,7 @@ const path = require('path');
 
 // Dynamic storage selection: blobDb (blob persistence) > local embedded db
 const storage = process.env.BLOB_READ_WRITE_TOKEN ? require('./blobDb') : require('./db');
-const { seedTemplateIfMissing, getTemplate, saveTemplate, deleteTemplate, listTemplates, listDealers, getDealer, createDealer, updateDealer, deleteDealer, upsertDealers, renameTemplate } = storage;
+const { seedTemplateIfMissing, getTemplate, saveTemplate, deleteTemplate, listTemplates, listDealers, getDealer, createDealer, updateDealer, deleteDealer, upsertDealers, renameTemplate, listPrices, getPrice, savePrice, deletePrice } = storage;
 
 const TEMPLATE_FILE_PATH = path.join(__dirname, 'template.txt');
 const DEALERS_JSON_PATH = path.join(__dirname, 'data', 'dealers.json');
@@ -19,10 +19,34 @@ async function initData(){
   dataInitialized = true;
 }
 
-function renderTemplateForDealer(tpl, dealer){
+// Make renderTemplateForDealer async so it can fetch brand-specific vehicle pricing
+async function renderTemplateForDealer(tpl, dealer){
   if (!dealer) return tpl;
   const map = { DEALER_NAME: dealer.name||'', NAME: dealer.name||'', ADDRESS: dealer.address||'', NUMBER: dealer.number||'', PHONE: dealer.number||'', BRAND: dealer.brand||'' };
   for (const [k,v] of Object.entries(map)) tpl = tpl.replace(new RegExp(`{{\\s*${k}\\s*}}`,'g'), v);
+
+  // VEHICLE_PRICES substitution: fetch pricing for dealer.brand from storage if available
+  if (/{{\s*VEHICLE_PRICES\s*}}/.test(tpl)){
+    try {
+      const brand = (dealer.brand || '').trim();
+      let pricesContent = '';
+      if (brand) {
+        if (typeof storage.getPrice === 'function') {
+          // storage.getPrice may be sync or async
+          const maybe = storage.getPrice(brand);
+          pricesContent = (maybe && typeof maybe.then === 'function') ? await maybe : maybe;
+        }
+      }
+      // if pricesContent is an object (row), try to extract content
+      if (pricesContent && typeof pricesContent === 'object' && pricesContent.content) pricesContent = pricesContent.content;
+      if (!pricesContent) pricesContent = '';
+      tpl = tpl.replace(new RegExp(`{{\\s*VEHICLE_PRICES\\s*}}`,'g'), pricesContent);
+    } catch (e) {
+      // on any failure, replace with empty string
+      tpl = tpl.replace(new RegExp(`{{\\s*VEHICLE_PRICES\\s*}}`,'g'), '');
+    }
+  }
+
   return tpl;
 }
 
@@ -39,8 +63,17 @@ function createApiRouter(){
 
   // Templates (multi)
   app.get('/templates', async (_req,res)=>{ try { const list = (await listTemplates()).map(r=>({ key: r.key, updated_at: r.updated_at })); res.json({ templates: list }); } catch(e){ serverErr(res,e); } });
-  app.get('/template', async (req,res)=>{ try { const key = sanitizeTemplateKey(req.query.key)||'main'; const template = await getTemplate(key); res.json({ key, template }); } catch(e){ serverErr(res,e); } });
-  app.put('/template', async (req,res)=>{ const { template, key } = req.body||{}; if (typeof template !== 'string') return bad(res,'invalid_template'); const k = sanitizeTemplateKey(key)||'main'; try { await saveTemplate(k, template); res.json({ ok:true, key:k }); } catch(e){ serverErr(res,e); } });
+  app.get('/template', async (req,res)=>{ try {
+    const keyParam = sanitizeTemplateKey(req.query.key);
+    let key = keyParam;
+    if (!key) {
+      const list = await listTemplates();
+      if (list.length) key = list[0].key; else key='';
+    }
+    const template = key ? await getTemplate(key) : '';
+    res.json({ key, template });
+  } catch(e){ serverErr(res,e); } });
+  app.put('/template', async (req,res)=>{ const { template, key } = req.body||{}; if (typeof template !== 'string') return bad(res,'invalid_template'); const kRaw = sanitizeTemplateKey(key); const k = kRaw || (sanitizeTemplateKey(key)||'main'); try { await saveTemplate(k, template); res.json({ ok:true, key:k }); } catch(e){ serverErr(res,e); } });
   app.delete('/template', async (req,res)=>{ const key = sanitizeTemplateKey(req.query.key); if (!key) return bad(res,'key_required'); try { const ok = await deleteTemplate(key); if (!ok) return notFound(res,key); res.json({ ok:true }); } catch(e){ serverErr(res,e); } });
   app.post('/rename', async (req,res)=>{
     const srcOld = req.query.oldKey || (req.body&&req.body.oldKey);
@@ -57,8 +90,25 @@ function createApiRouter(){
   app.put('/dealer', async (req,res)=>{ const id = sanitizeId(req.query.id); if (!id) return bad(res,'id_required'); try { const dealer = await updateDealer(id, req.body||{}); if (!dealer) return notFound(res,id); res.json({ dealer }); } catch(e){ serverErr(res,e); } });
   app.delete('/dealer', async (req,res)=>{ const id = sanitizeId(req.query.id); if (!id) return bad(res,'id_required'); try { const existing = await getDealer(id); if (!existing) return notFound(res,id); await deleteDealer(id); res.json({ ok:true }); } catch(e){ serverErr(res,e); } });
 
+  // Prices (vehicle starting prices) - per brand
+  app.get('/prices', async (_req,res)=>{ try { if (typeof listPrices !== 'function') return res.json({ prices: [] }); const list = await listPrices(); res.json({ prices: list }); } catch(e){ serverErr(res,e); } });
+  app.get('/price', async (req,res)=>{ const brand = (req.query.brand || '').trim(); if (!brand) return bad(res,'brand_required'); try { if (typeof getPrice !== 'function') return notFound(res,brand); const p = await getPrice(brand); if (!p) return notFound(res,brand); res.json({ brand, content: p.content || p }); } catch(e){ serverErr(res,e); } });
+  app.put('/price', async (req,res)=>{ const { brand='', content='' } = req.body||{}; const b = (brand||'').trim(); if (!b) return bad(res,'brand_required'); try { if (typeof savePrice !== 'function') return serverErr(res,new Error('price_api_missing')); await savePrice(b, content); res.json({ ok:true, brand: b }); } catch(e){ serverErr(res,e); } });
+  app.delete('/price', async (req,res)=>{ const brand = (req.query.brand || '').trim(); if (!brand) return bad(res,'brand_required'); try { if (typeof deletePrice !== 'function') return notFound(res,brand); await deletePrice(brand); res.json({ ok:true }); } catch(e){ serverErr(res,e); } });
+
   // Render
-  app.get('/render', async (req,res)=>{ const id = sanitizeId(req.query.id); if (!id) return bad(res,'id_required'); try { const dealer = await getDealer(id); if (!dealer) return notFound(res,id); const tplKey = sanitizeTemplateKey(req.query.template)||'main'; const template = await getTemplate(tplKey); const rendered = renderTemplateForDealer(template, dealer); res.json({ rendered, dealer, templateKey: tplKey }); } catch(e){ serverErr(res,e); } });
+  app.get('/render', async (req,res)=>{ const id = sanitizeId(req.query.id); if (!id) return bad(res,'id_required'); try {
+    const dealer = await getDealer(id); if (!dealer) return notFound(res,id);
+    const tplParam = sanitizeTemplateKey(req.query.template);
+    let tplKey = tplParam;
+    if (!tplKey) {
+      const list = await listTemplates();
+      if (list.length) tplKey = list[0].key; else tplKey='';
+    }
+    const template = tplKey ? await getTemplate(tplKey) : '';
+    const rendered = await renderTemplateForDealer(template, dealer);
+    res.json({ rendered, dealer, templateKey: tplKey });
+  } catch(e){ serverErr(res,e); } });
 
   // Populate dealers (idempotent) - always reads data/dealers.json
   const handlePopulate = async (_req,res)=>{
@@ -87,4 +137,3 @@ function createApiRouter(){
 function registerApi(app){ app.use('/api', createApiRouter()); }
 
 module.exports = { initData, registerApi, createApiRouter, renderTemplateForDealer };
-

@@ -25,7 +25,7 @@
 
     <div v-if="!currentKey" class="p-4 text-xs text-gray-600 bg-yellow-50 border rounded">No templates exist yet. Create one to start.</div>
     <div v-else>
-      <textarea ref="templateArea" v-model="localTemplate" class="p-4 border rounded bg-white whitespace-pre-wrap text-sm leading-relaxed min-h-[8rem] w-full"></textarea>
+      <textarea ref="templateArea" v-model="localTemplate" class="p-4 border rounded bg-white whitespace-pre-wrap text-sm leading-relaxed w-full min-h-96"></textarea>
     </div>
 
     <div class="flex gap-2 items-center flex-wrap">

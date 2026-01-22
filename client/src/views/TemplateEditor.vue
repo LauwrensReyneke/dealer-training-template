@@ -4,7 +4,7 @@
       <div>
         <h2 class="text-lg font-semibold">Template Editor</h2>
         <p class="text-sm text-gray-600" v-pre>
-          Use placeholders: {{DEALER_NAME}}, {{ADDRESS}}, {{NUMBER}}, {{BRAND}}, {{VEHICLE_PRICES}} and {{SHOWROOM_LINK}}
+          Use placeholders: {{DEALER_NAME}}, {{ADDRESS}}, {{NUMBER}}, {{BRAND}} and {{SHOWROOM_LINK}}
         </p>
       </div>
       <div class="ml-auto flex flex-wrap gap-2 items-end">

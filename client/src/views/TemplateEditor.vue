@@ -4,7 +4,7 @@
       <div>
         <h2 class="text-lg font-semibold">Template Editor</h2>
         <p class="text-sm text-gray-600" v-pre>
-          Use placeholders: {{DEALER_NAME}}, {{ADDRESS}}, {{NUMBER}}, {{BRAND}} and {{VEHICLE_PRICES}}
+          Use placeholders: {{DEALER_NAME}}, {{ADDRESS}}, {{NUMBER}}, {{BRAND}}, {{VEHICLE_PRICES}} and {{SHOWROOM_LINK}}
         </p>
       </div>
       <div class="ml-auto flex flex-wrap gap-2 items-end">
@@ -61,7 +61,7 @@ import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
 import { getTemplate, saveTemplate, deleteTemplate, renameTemplate } from '../api';
 import { templates, selectedTemplateKey, setSelectedTemplateKey, refreshTemplates, registerBeforeTemplateChange } from '../stores/templatesStore';
 
-const placeholders = Object.freeze(['{{DEALER_NAME}}','{{ADDRESS}}','{{NUMBER}}','{{BRAND}}','{{VEHICLE_PRICES}}']);
+const placeholders = Object.freeze(['{{DEALER_NAME}}','{{ADDRESS}}','{{NUMBER}}','{{BRAND}}','{{VEHICLE_PRICES}}','{{SHOWROOM_LINK}}']);
 const localTemplate = ref('');
 const original = ref('');
 const status = ref('');

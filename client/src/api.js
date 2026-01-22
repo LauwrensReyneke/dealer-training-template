@@ -70,18 +70,4 @@ export async function copyText(text){
   }
 }
 
-// Prices API
-export async function listPrices(){
-  const { prices = [] } = await request('GET','/prices');
-  return prices;
-}
-export async function getPrice(brand){
-  const { content = '' } = await request('GET', `/price?brand=${encodeURIComponent(brand)}`);
-  return content;
-}
-export async function savePrice(brand, content){
-  return request('PUT','/price', { brand, content });
-}
-export async function deletePrice(brand){
-  return request('DELETE', `/price?brand=${encodeURIComponent(brand)}`);
-}
+// Prices API removed — page deprecated

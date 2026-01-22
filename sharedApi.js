@@ -22,7 +22,7 @@ async function initData(){
 // Make renderTemplateForDealer async so it can fetch brand-specific vehicle pricing
 async function renderTemplateForDealer(tpl, dealer){
   if (!dealer) return tpl;
-  const map = { DEALER_NAME: dealer.name||'', NAME: dealer.name||'', ADDRESS: dealer.address||'', NUMBER: dealer.number||'', PHONE: dealer.number||'', BRAND: dealer.brand||'' };
+  const map = { DEALER_NAME: dealer.name||'', NAME: dealer.name||'', ADDRESS: dealer.address||'', NUMBER: dealer.number||'', PHONE: dealer.number||'', BRAND: dealer.brand||'', SHOWROOM_LINK: dealer.showroom_link||'' };
   for (const [k,v] of Object.entries(map)) tpl = tpl.replace(new RegExp(`{{\\s*${k}\\s*}}`,'g'), v);
 
   // VEHICLE_PRICES substitution: fetch pricing for dealer.brand from storage if available
@@ -86,8 +86,9 @@ function createApiRouter(){
   // Dealers
   app.get('/dealers', async (_req,res)=>{ try { res.json({ dealers: await listDealers() }); } catch(e){ serverErr(res,e); } });
   app.get('/dealer', async (req,res)=>{ const id = sanitizeId(req.query.id); if (!id) return bad(res,'id_required'); try { const dealer = await getDealer(id); if (!dealer) return notFound(res,id); res.json({ dealer }); } catch(e){ serverErr(res,e); } });
-  app.post('/dealer', async (req,res)=>{ const { name, address='', number='', brand='' } = req.body||{}; if (!name) return bad(res,'name_required'); try { const id = Date.now().toString(36)+Math.random().toString(36).slice(2,6); const dealer = await createDealer({ id, name, address, number, brand }); res.status(201).json({ dealer }); } catch(e){ serverErr(res,e); } });
-  app.put('/dealer', async (req,res)=>{ const id = sanitizeId(req.query.id); if (!id) return bad(res,'id_required'); try { const dealer = await updateDealer(id, req.body||{}); if (!dealer) return notFound(res,id); res.json({ dealer }); } catch(e){ serverErr(res,e); } });
+  app.post('/dealer', async (req,res)=>{ const { name, address='', number='', brand='', showroom_link='' } = req.body||{}; if (!name) return bad(res,'name_required'); try { const id = Date.now().toString(36)+Math.random().toString(36).slice(2,6); const dealer = await createDealer({ id, name, address, number, brand, showroom_link }); res.status(201).json({ dealer }); } catch(e){ serverErr(res,e); } });
+  app.put('/dealer', async (req,res)=>{ const id = sanitizeId(req.query.id); if (!id) return bad(res,'id_required'); try { const body = req.body||{}; // allow showroom_link through
+    const dealer = await updateDealer(id, body); if (!dealer) return notFound(res,id); res.json({ dealer }); } catch(e){ serverErr(res,e); } });
   app.delete('/dealer', async (req,res)=>{ const id = sanitizeId(req.query.id); if (!id) return bad(res,'id_required'); try { const existing = await getDealer(id); if (!existing) return notFound(res,id); await deleteDealer(id); res.json({ ok:true }); } catch(e){ serverErr(res,e); } });
 
   // Prices (vehicle starting prices) - per brand

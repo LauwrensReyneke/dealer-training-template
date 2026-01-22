@@ -5,7 +5,6 @@
       <nav class="flex gap-3 text-sm">
         <RouterLink to="/" class="hover:underline" :class="linkClass('/')">Template</RouterLink>
         <RouterLink to="/dealers" class="hover:underline" :class="linkClass('/dealers')">Dealers</RouterLink>
-        <RouterLink to="/prices" class="hover:underline" :class="linkClass('/prices')">Prices</RouterLink>
         <RouterLink to="/render" class="hover:underline" :class="linkClass('/render')">Render</RouterLink>
       </nav>
       <!-- Global Template Selector -->

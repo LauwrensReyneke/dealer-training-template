@@ -14,6 +14,7 @@
           <th class="p-2 text-left">Address</th>
           <th class="p-2 text-left">Number</th>
           <th class="p-2 text-left">Brand</th>
+          <th class="p-2 text-left">Showroom</th>
           <th class="p-2 text-right">Actions</th>
         </tr>
       </thead>
@@ -23,6 +24,7 @@
           <td class="p-2">{{ d.address }}</td>
           <td class="p-2">{{ d.number }}</td>
           <td class="p-2">{{ d.brand }}</td>
+          <td class="p-2 break-words"><a v-if="d.showroom_link" :href="d.showroom_link" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline">{{ d.showroom_link }}</a><span v-else class="text-gray-400">—</span></td>
           <td class="p-2">
             <div class="flex flex-wrap justify-end gap-2">
               <button @click="copyTemplate(d)" :disabled="copyingId===d.id" class="px-2 py-1 text-xs rounded bg-blue-600 text-white disabled:opacity-50">{{ copyingId===d.id ? 'Copying…' : 'Copy Template' }}</button>
@@ -57,6 +59,9 @@
               <label class="text-xs font-medium">Brand
                 <input v-model.trim="form.brand" class="mt-1 w-full border rounded px-2 py-1 text-sm" />
               </label>
+              <label class="text-xs font-medium">Showroom Link
+                <input v-model.trim="form.showroom_link" placeholder="https://example.com/showroom" class="mt-1 w-full border rounded px-2 py-1 text-sm" />
+              </label>
             </div>
             <div class="flex justify-end gap-2 pt-2">
               <button type="button" @click="close" class="px-3 py-1.5 rounded bg-gray-200 text-sm">Cancel</button>
@@ -75,7 +80,7 @@ import { selectedTemplateKey } from '../stores/templatesStore';
 
 const dealers = ref([]);
 const loading = ref(false);
-const form = reactive({ id:'', name:'', address:'', number:'', brand:'' });
+const form = reactive({ id:'', name:'', address:'', number:'', brand:'', showroom_link: '' });
 const copyingId = ref('');
 const lastCopiedId = ref('');
 const statusMsg = ref('');
@@ -96,7 +101,7 @@ async function load(){
   finally { loading.value = false; }
 }
 
-function openNew(){ Object.assign(form,{ id:'', name:'', address:'', number:'', brand:'' }); showModal.value=true; focusSoon(); }
+function openNew(){ Object.assign(form,{ id:'', name:'', address:'', number:'', brand:'', showroom_link:'' }); showModal.value=true; focusSoon(); }
 function openEdit(d){ Object.assign(form,d); showModal.value=true; focusSoon(); }
 function close(){ if (savingDealer.value) return; showModal.value=false; }
 function focusSoon(){ setTimeout(()=> { const el = document.querySelector('input[required]'); if (el) el.focus(); }, 20); }
@@ -104,7 +109,7 @@ function focusSoon(){ setTimeout(()=> { const el = document.querySelector('input
 async function save(){
   if (!form.name.trim()) return;
   savingDealer.value = true;
-  const payload = { name: form.name.trim(), address: form.address.trim(), number: form.number.trim(), brand: form.brand.trim() };
+  const payload = { name: form.name.trim(), address: form.address.trim(), number: form.number.trim(), brand: form.brand.trim(), showroom_link: form.showroom_link && form.showroom_link.trim() };
   try {
     if (form.id) await updateDealer(form.id, payload); else await createDealer(payload);
     await load();

@@ -72,6 +72,7 @@ function initSchema(){
   address TEXT DEFAULT '',
   number TEXT DEFAULT '',
   brand TEXT DEFAULT '',
+  showroom_link TEXT DEFAULT '',
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );`);
@@ -104,9 +105,9 @@ function migrateDealersFromJson(jsonPath) {
     const list = Array.isArray(parsed) ? parsed : parsed.dealers || [];
     if (!list.length) return;
     run('BEGIN');
-    const ins = prepare('INSERT INTO dealers (id,name,address,number,brand) VALUES (?,?,?,?,?)');
+    const ins = prepare('INSERT INTO dealers (id,name,address,number,brand,showroom_link) VALUES (?,?,?,?,?,?)');
     for (const d of list) {
-      ins.run([ d.id || (Date.now().toString(36)+Math.random().toString(36).slice(2,6)), d.name||'', d.address||'', d.number||'', d.brand||'' ]);
+      ins.run([ d.id || (Date.now().toString(36)+Math.random().toString(36).slice(2,6)), d.name||'', d.address||'', d.number||'', d.brand||'', d.showroom_link||'' ]);
     }
     run('COMMIT');
     persist();
@@ -116,7 +117,7 @@ function migrateDealersFromJson(jsonPath) {
 function upsertDealers(list){
   if (!Array.isArray(list) || !list.length) return 0;
   const findByNameStmt = prepare('SELECT id FROM dealers WHERE lower(name)=lower(?) LIMIT 1');
-  const insertStmt = prepare('INSERT INTO dealers (id,name,address,number,brand) VALUES (?,?,?,?,?)');
+  const insertStmt = prepare('INSERT INTO dealers (id,name,address,number,brand,showroom_link) VALUES (?,?,?,?,?,?)');
   let inserted = 0;
   run('BEGIN');
   for (const d of list){
@@ -128,6 +129,7 @@ function upsertDealers(list){
     const address = (d.address || d.Address || '').trim();
     const number = (d.number || d.Number || '').trim();
     const brand = (d.brand || d.Brand || '').trim();
+    const showroom_link = (d.showroom_link || d.Showroom || d.ShowroomLink || '').trim();
     const baseSlug = name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,48) || (Date.now().toString(36));
     let id = baseSlug;
     let attempt = 0;
@@ -135,7 +137,7 @@ function upsertDealers(list){
       id = baseSlug + '-' + Math.random().toString(36).slice(2,6);
       attempt++;
     }
-    try { insertStmt.run([id, name, address, number, brand]); inserted++; } catch(_){ }
+    try { insertStmt.run([id, name, address, number, brand, showroom_link]); inserted++; } catch(_){ }
   }
   run('COMMIT');
   if (inserted) persist();
@@ -180,22 +182,22 @@ function renameTemplate(oldKey, newKey){
 
 // Dealer API
 function listDealers(){
-  const stmt = prepare('SELECT id,name,address,number,brand FROM dealers ORDER BY name COLLATE NOCASE');
+  const stmt = prepare('SELECT id,name,address,number,brand,showroom_link FROM dealers ORDER BY name COLLATE NOCASE');
   const out = []; while (stmt.step()) out.push(stmt.getAsObject()); return out;
 }
 function getDealer(id){
-  const row = prepare('SELECT id,name,address,number,brand FROM dealers WHERE id=?').getAsObject([id]);
+  const row = prepare('SELECT id,name,address,number,brand,showroom_link FROM dealers WHERE id=?').getAsObject([id]);
   if (!row || !row.id) return null; return row;
 }
-function createDealer({ id, name, address='', number='', brand='' }){
-  prepare('INSERT INTO dealers (id,name,address,number,brand) VALUES (?,?,?,?,?)').run([id,name,address,number,brand]);
+function createDealer({ id, name, address='', number='', brand='', showroom_link='' }){
+  prepare('INSERT INTO dealers (id,name,address,number,brand,showroom_link) VALUES (?,?,?,?,?,?)').run([id,name,address,number,brand,showroom_link]);
   persist();
   return getDealer(id);
 }
 function updateDealer(id, fields){
   const current = getDealer(id); if (!current) return null;
   const next = { ...current, ...fields };
-  prepare('UPDATE dealers SET name=?, address=?, number=?, brand=?, updated_at=CURRENT_TIMESTAMP WHERE id=?').run([next.name,next.address,next.number,next.brand,id]);
+  prepare('UPDATE dealers SET name=?, address=?, number=?, brand=?, showroom_link=?, updated_at=CURRENT_TIMESTAMP WHERE id=?').run([next.name,next.address,next.number,next.brand,next.showroom_link,id]);
   persist();
   return getDealer(id);
 }
@@ -254,6 +256,8 @@ const init = (async () => {
     db = new SQL.Database();
   }
   initSchema();
+  // idempotent migration: add showroom_link column if missing
+  try { prepare("SELECT showroom_link FROM dealers LIMIT 1").getAsObject(); } catch (e) { try { run("ALTER TABLE dealers ADD COLUMN showroom_link TEXT DEFAULT ''"); } catch (_) {} }
 })();
 
 module.exports = {
